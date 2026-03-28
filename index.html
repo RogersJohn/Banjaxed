@@ -816,561 +816,35 @@ body {
 <!-- Modal container -->
 <div id="modal-root"></div>
 
-<script>
+<script type="module">
 // ============================================================
 // BANJAXED — Digital Edition
+// Game orchestration: imports engine + UI modules, manages game flow
 // ============================================================
 
-// --- COMPONENT TYPES ---
-const TYPES = {
-  spring:     { name: 'Spring',     icon: '🔩', tol: 0, category: 'common', color: 'var(--spring)' },
-  gear:       { name: 'Gear',       icon: '⚙️', tol: 0, category: 'common', color: 'var(--gear)' },
-  piston:     { name: 'Piston',     icon: '🔧', tol: 0, category: 'common', color: 'var(--piston)' },
-  cable:      { name: 'Cable',      icon: '🔗', tol: 0, category: 'common', color: 'var(--cable)' },
-  wheel:      { name: 'Wheel',      icon: '☸️', tol: 0, category: 'common', color: 'var(--wheel)' },
-  lever:      { name: 'Lever',      icon: '🔀', tol: 1, category: 'specialist', color: 'var(--lever)' },
-  pulley:     { name: 'Pulley',     icon: '🎡', tol: 1, category: 'specialist', color: 'var(--pulley)' },
-  flywheel:   { name: 'Flywheel',   icon: '💫', tol: 1, category: 'specialist', color: 'var(--flywheel)' },
-  bellows:    { name: 'Bellows',    icon: '🌬️', tol: 1, category: 'specialist', color: 'var(--bellows)' },
-  pin:        { name: 'Pin',        icon: '📌', tol: 1, category: 'specialist', color: 'var(--pin)' },
-  cam:        { name: 'Cam',        icon: '🎯', tol: 1, category: 'specialist', color: 'var(--cam)' },
-  ratchet:    { name: 'Ratchet',    icon: '🔒', tol: 1, category: 'specialist', color: 'var(--ratchet)' },
-  wormgear:   { name: 'Worm Gear',  icon: '🐛', tol: 1, category: 'specialist', color: 'var(--wormgear)' },
-  escapement: { name: 'Escapement', icon: '⏱️', tol: 1, category: 'specialist', color: 'var(--escapement)' },
-  crank:      { name: 'Crank',      icon: '🔄', tol: 1, category: 'specialist', color: 'var(--crank)' },
-  widget:     { name: 'Widget',     icon: '★',  tol: 0, category: 'wildcard', color: 'var(--widget)' },
-};
-
-// --- BLUEPRINTS ---
-const BLUEPRINTS = [
-  { name: 'The Automatic Biscuit Dunker',         requires: ['spring','lever','pulley','gear','crank'], basePoints: 5 },
-  { name: 'The Self-Writing Letter of Complaint',  requires: ['flywheel','cam','gear','lever','bellows','crank'], basePoints: 6 },
-  { name: 'The Cat-Startling Doorbell',            requires: ['spring','pin','cable','escapement','crank'], basePoints: 5 },
-  { name: 'The Egg Timer That Judges You',         requires: ['spring','wormgear','ratchet','cam'], basePoints: 4 },
-  { name: 'The Unwanted Confetti Cannon',          requires: ['spring','piston','piston','pin','cable'], basePoints: 5 },
-  { name: 'The Automatic Sock Sorter',             requires: ['wheel','cable','lever','lever','wheel'], basePoints: 5 },
-  { name: 'The Perpetual Stirring Engine',         requires: ['spring','flywheel','gear','gear','gear','crank'], basePoints: 6 },
-  { name: 'The Nose-Following Portrait Machine',   requires: ['lever','pin','cable','lever','crank'], basePoints: 5 },
-  { name: 'The Diplomatic Handshaking Apparatus',  requires: ['flywheel','gear','cam','crank','lever','lever'], basePoints: 6 },
-  { name: 'The Overengineered Alarm Clock',        requires: ['spring','escapement','pin','cam','cam','cam'], basePoints: 6 },
-  { name: 'The Emergency Tea Brewer',              requires: ['bellows','spring','cable','wheel','piston'], basePoints: 5 },
-  { name: 'The Automatic Hat Tipper',              requires: ['gear','lever','cam','spring'], basePoints: 4 },
-  { name: 'The Recursive Paper Aeroplane Folder',  requires: ['ratchet','gear','crank','pin','lever'], basePoints: 5 },
-  { name: 'The Passive-Aggressive Door Closer',    requires: ['spring','cable','pulley','escapement'], basePoints: 4 },
-  { name: 'The Unnecessarily Complex Nutcracker',  requires: ['flywheel','gear','piston','lever','cam'], basePoints: 5 },
-  { name: 'The Autonomous Umbrella Deployer',      requires: ['spring','spring','cable','ratchet','bellows'], basePoints: 5 },
-  { name: 'The Self-Adjusting Monocle Polisher',   requires: ['wormgear','wheel','cable','pulley','crank'], basePoints: 5 },
-  { name: 'The Overly Sincere Applause Machine',   requires: ['cam','cam','gear','flywheel','crank','crank'], basePoints: 6 },
-  { name: 'The Gravitational Toast Retriever',     requires: ['pulley','cable','lever','spring','wheel'], basePoints: 5 },
-  { name: 'The Pre-emptive Sneeze Deflector',      requires: ['bellows','bellows','gear','pin','cable'], basePoints: 5 },
-];
-
-// --- DECK BUILDER ---
-function buildDeck() {
-  const deck = [];
-  let id = 0;
-  // Common: 10 each of spring, gear, piston, cable, wheel
-  for (const type of ['spring','gear','piston','cable','wheel']) {
-    for (let i = 0; i < 10; i++) deck.push(createCard(id++, type));
-  }
-  // Specialist: 5 each
-  for (const type of ['lever','pulley','flywheel','bellows','pin','cam','ratchet','wormgear','escapement','crank']) {
-    for (let i = 0; i < 5; i++) deck.push(createCard(id++, type));
-  }
-  // Widgets: 10
-  for (let i = 0; i < 10; i++) deck.push(createCard(id++, 'widget'));
-  return deck;
-}
-
-function createCard(id, type) {
-  const edges = type === 'widget'
-    ? ['star','star','star','star']
-    : generateEdges();
-  return { id, type, edges, upright: true };
-}
-
-function generateEdges() {
-  // 3 polarity edges + 1 blank, randomized positions
-  const symbols = [];
-  for (let i = 0; i < 3; i++) symbols.push(Math.random() < 0.5 ? '+' : '-');
-  symbols.push('blank');
-  // shuffle
-  for (let i = symbols.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [symbols[i], symbols[j]] = [symbols[j], symbols[i]];
-  }
-  return symbols; // [top, right, bottom, left]
-}
-
-function shuffle(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+import { TYPES } from './src/data/components.js';
+import { createInitialState, dealBlueprintChoices, dealStartingHands } from './src/engine/state.js';
+import {
+  posKey, getAllValidPlacements, countComponents,
+  checkBlueprintSatisfied, scoreBlueprint
+} from './src/engine/rules.js';
+import { rollBanjaxDice } from './src/engine/dice.js';
+import * as AI from './src/engine/ai.js';
+import { renderMechanism, renderCardHTML } from './src/ui/board.js';
+import { renderHand } from './src/ui/hand.js';
+import {
+  renderPlayerInfo, renderAIInfo, renderActionBar, renderDrawPile,
+  setPhase, addLog, showModal, closeModal
+} from './src/ui/hud.js';
 
 // --- GAME STATE ---
 let G = {};
 
 function initGame() {
-  const deck = shuffle(buildDeck());
-  const blueprints = shuffle([...BLUEPRINTS]);
-
-  G = {
-    deck,
-    blueprintDeck: blueprints,
-    round: 0,
-    phase: 'draft',
-    player: {
-      hand: [],
-      mechanism: {}, // grid positions: {row_col: card}
-      blueprint: null,
-      tolerance: 3,
-      score: 0,
-      blueprintsComplete: 0,
-      cardsPlayedThisTurn: 0,
-    },
-    ai: {
-      hand: [],
-      mechanism: {},
-      blueprint: null,
-      tolerance: 3,
-      score: 0,
-      blueprintsComplete: 0,
-      cardsPlayedThisTurn: 0,
-    },
-    selectedHandCard: null,
-    validPlacements: [],
-    gameOver: false,
-    log: [],
-  };
-
-  // Deal blueprints: each gets 2, picks 1
-  const pChoices = [G.blueprintDeck.shift(), G.blueprintDeck.shift()];
-  G.player.blueprintChoices = pChoices;
-
-  const aChoices = [G.blueprintDeck.shift(), G.blueprintDeck.shift()];
-  // AI picks the one with fewer required components (easier)
-  G.ai.blueprint = aChoices[0].requires.length <= aChoices[1].requires.length ? aChoices[0] : aChoices[1];
-  G.blueprintDeck.push(aChoices[0] === G.ai.blueprint ? aChoices[1] : aChoices[0]);
-
-  // Deal starting hands
-  for (let i = 0; i < 4; i++) {
-    G.player.hand.push(G.deck.shift());
-    G.ai.hand.push(G.deck.shift());
-  }
+  G = createInitialState();
+  dealBlueprintChoices(G);
+  dealStartingHands(G);
 }
-
-// --- GRID HELPERS ---
-function parsePos(key) {
-  const [r, c] = key.split('_').map(Number);
-  return { row: r, col: c };
-}
-function posKey(r, c) { return `${r}_${c}`; }
-
-function getMechanismBounds(mech) {
-  const keys = Object.keys(mech);
-  if (keys.length === 0) return { minR: 0, maxR: 0, minC: 0, maxC: 0 };
-  let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity;
-  for (const k of keys) {
-    const { row, col } = parsePos(k);
-    minR = Math.min(minR, row); maxR = Math.max(maxR, row);
-    minC = Math.min(minC, col); maxC = Math.max(maxC, col);
-  }
-  return { minR, maxR, minC, maxC };
-}
-
-function getNeighborKeys(r, c) {
-  return [
-    { key: posKey(r-1, c), dir: 'top', oppDir: 'bottom' },
-    { key: posKey(r, c+1), dir: 'right', oppDir: 'left' },
-    { key: posKey(r+1, c), dir: 'bottom', oppDir: 'top' },
-    { key: posKey(r, c-1), dir: 'left', oppDir: 'right' },
-  ];
-}
-
-const DIR_INDEX = { top: 0, right: 1, bottom: 2, left: 3 };
-
-function checkEdgeCompatibility(cardEdge, neighborEdge) {
-  // star connects to anything
-  if (cardEdge === 'star' || neighborEdge === 'star') return true;
-  // blank blocks everything
-  if (cardEdge === 'blank' || neighborEdge === 'blank') return false;
-  // + connects to - and vice versa
-  return (cardEdge === '+' && neighborEdge === '-') || (cardEdge === '-' && neighborEdge === '+');
-}
-
-function canPlaceCard(mech, card, row, col) {
-  const key = posKey(row, col);
-  if (mech[key]) return { valid: false };
-
-  const mechKeys = Object.keys(mech);
-  if (mechKeys.length === 0) return { valid: true, bodge: false };
-
-  const neighbors = getNeighborKeys(row, col);
-  let hasNeighbor = false;
-  let polarityOk = true;
-  let hasBlankViolation = false;
-
-  for (const n of neighbors) {
-    if (!mech[n.key]) continue;
-    hasNeighbor = true;
-    const nCard = mech[n.key];
-    const myEdge = card.edges[DIR_INDEX[n.dir]];
-    const theirEdge = nCard.edges[DIR_INDEX[n.oppDir]];
-
-    if (myEdge === 'blank' || theirEdge === 'blank') {
-      if (myEdge !== 'star' && theirEdge !== 'star') {
-        hasBlankViolation = true;
-      }
-    } else if (!checkEdgeCompatibility(myEdge, theirEdge)) {
-      polarityOk = false;
-    }
-  }
-
-  if (!hasNeighbor) return { valid: false };
-  if (hasBlankViolation) return { valid: false }; // blank edges cannot be bodged
-  if (!polarityOk) return { valid: true, bodge: true };
-  return { valid: true, bodge: false };
-}
-
-function getAllValidPlacements(mech, card) {
-  const placements = [];
-  const mechKeys = Object.keys(mech);
-
-  if (mechKeys.length === 0) {
-    placements.push({ row: 3, col: 5, bodge: false });
-    return placements;
-  }
-
-  const { minR, maxR, minC, maxC } = getMechanismBounds(mech);
-  for (let r = minR - 1; r <= maxR + 1; r++) {
-    for (let c = minC - 1; c <= maxC + 1; c++) {
-      const result = canPlaceCard(mech, card, r, c);
-      if (result.valid) {
-        placements.push({ row: r, col: c, bodge: result.bodge || false });
-      }
-    }
-  }
-  return placements;
-}
-
-function countComponents(mech) {
-  const keys = Object.keys(mech);
-  let upright = 0, flipped = 0;
-  for (const k of keys) {
-    if (mech[k].upright) upright++; else flipped++;
-  }
-  return { total: keys.length, upright, flipped };
-}
-
-function getUprightTypes(mech) {
-  const types = [];
-  for (const k of Object.keys(mech)) {
-    if (mech[k].upright) types.push(mech[k].type);
-  }
-  return types;
-}
-
-function checkBlueprintSatisfied(mech, blueprint) {
-  const uprightTypes = getUprightTypes(mech);
-  const available = [...uprightTypes];
-  const required = [...blueprint.requires];
-
-  for (let i = required.length - 1; i >= 0; i--) {
-    const idx = available.indexOf(required[i]);
-    if (idx !== -1) {
-      available.splice(idx, 1);
-      required.splice(i, 1);
-    }
-  }
-  // Use widgets to fill remaining
-  for (let i = required.length - 1; i >= 0; i--) {
-    const widx = available.indexOf('widget');
-    if (widx !== -1) {
-      available.splice(widx, 1);
-      required.splice(i, 1);
-    }
-  }
-  return required.length === 0;
-}
-
-// Check connectivity after removing a card
-function isConnectedWithout(mech, removeKey) {
-  const keys = Object.keys(mech).filter(k => k !== removeKey);
-  if (keys.length <= 1) return true;
-
-  const visited = new Set();
-  const queue = [keys[0]];
-  visited.add(keys[0]);
-
-  while (queue.length > 0) {
-    const cur = queue.shift();
-    const { row, col } = parsePos(cur);
-    for (const n of getNeighborKeys(row, col)) {
-      if (keys.includes(n.key) && !visited.has(n.key)) {
-        visited.add(n.key);
-        queue.push(n.key);
-      }
-    }
-  }
-  return visited.size === keys.length;
-}
-
-// --- SCORING ---
-function scoreBlueprint(mech, blueprint) {
-  const uprightTypes = getUprightTypes(mech);
-  const available = [...uprightTypes];
-  const required = [...blueprint.requires];
-  let widgetsUsed = 0;
-
-  // Match specific types first
-  for (let i = required.length - 1; i >= 0; i--) {
-    const idx = available.indexOf(required[i]);
-    if (idx !== -1) {
-      available.splice(idx, 1);
-      required.splice(i, 1);
-    }
-  }
-  // Fill with widgets
-  for (let i = required.length - 1; i >= 0; i--) {
-    const widx = available.indexOf('widget');
-    if (widx !== -1) {
-      available.splice(widx, 1);
-      required.splice(i, 1);
-      widgetsUsed++;
-    }
-  }
-
-  const basePoints = blueprint.requires.length - widgetsUsed; // widgets score 0
-  const { upright, flipped } = countComponents(mech);
-  const minRequired = blueprint.requires.length;
-  const excess = Math.min(3, upright - minRequired);
-  const penalty = flipped * -2;
-
-  return {
-    base: basePoints,
-    excess: Math.max(0, excess),
-    penalty,
-    total: basePoints + Math.max(0, excess) + penalty,
-  };
-}
-
-// --- BANJAX DICE ---
-function rollBanjaxDice(numDice, tolerance) {
-  const results = [];
-  for (let i = 0; i < numDice; i++) {
-    const roll = Math.random();
-    let face;
-    if (roll < 0.5) face = 'blank';       // 3/6
-    else if (roll < 5/6) face = 'wobble';  // 2/6
-    else face = 'eureka';                   // 1/6
-
-    // Apply tolerance thresholds
-    if (tolerance >= 7 && tolerance <= 8 && face === 'blank') {
-      face = 'wobble'; // disadvantage
-    }
-    if (tolerance >= 9 && tolerance <= 11 && face === 'wobble') {
-      face = 'banjax'; // wobble becomes banjax
-    }
-
-    results.push(face);
-  }
-  return results;
-}
-
-// --- AI LOGIC ---
-const AI = {
-  // Choose which card to keep and which to gift
-  draftChoice(drawnCards) {
-    const bp = G.ai.blueprint;
-    const needed = this.getNeededTypes();
-    const hand = G.ai.hand;
-
-    // Score each card for the AI
-    const scores = drawnCards.map((card, idx) => {
-      let score = 0;
-      if (needed.includes(card.type)) score += 10;
-      if (card.type === 'widget') score += 5;
-      if (TYPES[card.type].tol === 0) score += 2;
-      // Prefer cards that have good edge compatibility
-      const placements = getAllValidPlacements(G.ai.mechanism, card);
-      if (placements.some(p => !p.bodge)) score += 3;
-      return { card, idx, score };
-    });
-
-    scores.sort((a, b) => b.score - a.score);
-    return { keep: scores[0].idx, gift: scores[1].idx };
-  },
-
-  getNeededTypes() {
-    const bp = G.ai.blueprint;
-    const have = getUprightTypes(G.ai.mechanism);
-    const needed = [...bp.requires];
-    for (const h of have) {
-      const idx = needed.indexOf(h);
-      if (idx !== -1) needed.splice(idx, 1);
-    }
-    // Remove widgets from available
-    let widgets = have.filter(t => t === 'widget').length;
-    // Don't count widgets already used for matching
-    return needed;
-  },
-
-  // Choose what to gift to player (pick worst card for them)
-  chooseGiftForPlayer(card) {
-    // We already chose — this is automatic
-    return card;
-  },
-
-  // Build phase: play cards from hand
-  buildPhase() {
-    const actions = [];
-    const maxPlay = 3;
-    let played = 0;
-
-    // Sort hand: needed types first, then widgets, then others
-    const needed = this.getNeededTypes();
-    const sorted = [...G.ai.hand].sort((a, b) => {
-      const aNeeded = needed.includes(a.type) ? 0 : (a.type === 'widget' ? 1 : 2);
-      const bNeeded = needed.includes(b.type) ? 0 : (b.type === 'widget' ? 1 : 2);
-      return aNeeded - bNeeded;
-    });
-
-    for (const card of sorted) {
-      if (played >= maxPlay) break;
-      if (countComponents(G.ai.mechanism).total >= 12) break; // don't push to 13
-
-      const placements = getAllValidPlacements(G.ai.mechanism, card);
-      if (placements.length === 0) continue;
-
-      // Prefer non-bodge placements
-      const good = placements.filter(p => !p.bodge);
-      const chosen = good.length > 0 ? good[0] : placements[0];
-
-      // Check if tolerance is getting dangerous
-      const tolCost = TYPES[card.type].tol + (chosen.bodge ? 3 : 0);
-      if (G.ai.tolerance + tolCost >= 10 && !needed.includes(card.type)) continue;
-
-      // Place it
-      const key = posKey(chosen.row, chosen.col);
-      G.ai.mechanism[key] = { ...card, upright: true };
-      G.ai.hand = G.ai.hand.filter(c => c.id !== card.id);
-      G.ai.tolerance += tolCost;
-      played++;
-
-      const bodgeText = chosen.bodge ? ' (Bodged! +3 Tolerance)' : '';
-      addLog(`<span class="log-ai">Rival</span> plays <span class="log-action">${TYPES[card.type].name}</span>${bodgeText}`);
-
-      // Update needed
-      const idx = needed.indexOf(card.type);
-      if (idx !== -1) needed.splice(idx, 1);
-    }
-
-    if (played === 0 && G.ai.hand.length > 0) {
-      // Must play at least 1
-      const card = G.ai.hand[0];
-      const placements = getAllValidPlacements(G.ai.mechanism, card);
-      if (placements.length > 0) {
-        const chosen = placements.find(p => !p.bodge) || placements[0];
-        const key = posKey(chosen.row, chosen.col);
-        G.ai.mechanism[key] = { ...card, upright: true };
-        G.ai.hand = G.ai.hand.filter(c => c.id !== card.id);
-        G.ai.tolerance += TYPES[card.type].tol + (chosen.bodge ? 3 : 0);
-        addLog(`<span class="log-ai">Rival</span> plays <span class="log-action">${TYPES[card.type].name}</span>`);
-      } else {
-        // Discard unplaceable
-        G.ai.hand.shift();
-        addLog(`<span class="log-ai">Rival</span> discards an unplaceable card`);
-      }
-    }
-
-    if (G.ai.hand.length === 0 && G.deck.length > 0) {
-      const card = G.deck.shift();
-      const placements = getAllValidPlacements(G.ai.mechanism, card);
-      if (placements.length > 0) {
-        const chosen = placements.find(p => !p.bodge) || placements[0];
-        const key = posKey(chosen.row, chosen.col);
-        G.ai.mechanism[key] = { ...card, upright: true };
-        G.ai.tolerance += TYPES[card.type].tol + (chosen.bodge ? 3 : 0);
-        addLog(`<span class="log-ai">Rival</span> draws and plays <span class="log-action">${TYPES[card.type].name}</span>`);
-      }
-    }
-  },
-
-  // Handle Banjax roll: choose which component to flip
-  chooseBanjaxTarget() {
-    const keys = Object.keys(G.ai.mechanism).filter(k => G.ai.mechanism[k].upright);
-    if (keys.length === 0) return null;
-
-    const needed = new Set(this.getNeededTypes());
-    // Prefer flipping cards not needed for blueprint
-    const nonNeeded = keys.filter(k => !G.ai.blueprint.requires.includes(G.ai.mechanism[k].type));
-    if (nonNeeded.length > 0) return nonNeeded[Math.floor(Math.random() * nonNeeded.length)];
-    return keys[Math.floor(Math.random() * keys.length)];
-  },
-
-  // Repair decision
-  repairPhase() {
-    if (G.ai.hand.length === 0) return;
-
-    const { flipped } = countComponents(G.ai.mechanism);
-    // Prefer repairing if we have flipped components needed for blueprint
-    if (flipped > 0 && G.ai.tolerance < 9) {
-      // Find a flipped card
-      const flippedKeys = Object.keys(G.ai.mechanism).filter(k => !G.ai.mechanism[k].upright);
-      if (flippedKeys.length > 0) {
-        // Discard least useful card from hand
-        const needed = this.getNeededTypes();
-        const sorted = [...G.ai.hand].sort((a, b) => {
-          const aNeeded = needed.includes(a.type) ? 1 : 0;
-          return aNeeded - (needed.includes(b.type) ? 1 : 0);
-        });
-        G.ai.hand = G.ai.hand.filter(c => c.id !== sorted[0].id);
-        G.ai.mechanism[flippedKeys[0]].upright = true;
-        addLog(`<span class="log-ai">Rival</span> repairs <span class="log-action">${TYPES[G.ai.mechanism[flippedKeys[0]].type].name}</span>`);
-        return;
-      }
-    }
-
-    // Or reduce tolerance if high
-    if (G.ai.tolerance >= 7 && G.ai.hand.length > 1) {
-      const needed = this.getNeededTypes();
-      const sorted = [...G.ai.hand].sort((a, b) => {
-        return (needed.includes(a.type) ? 1 : 0) - (needed.includes(b.type) ? 1 : 0);
-      });
-      G.ai.hand = G.ai.hand.filter(c => c.id !== sorted[0].id);
-      G.ai.tolerance--;
-      addLog(`<span class="log-ai">Rival</span> reduces tolerance by 1`);
-    }
-  },
-
-  // Should declare?
-  shouldDeclare() {
-    if (checkBlueprintSatisfied(G.ai.mechanism, G.ai.blueprint)) {
-      const counts = countComponents(G.ai.mechanism);
-      // Declare if: blueprint satisfied and either close to 13 or tolerance is getting high
-      if (counts.total >= 10 || G.ai.tolerance >= 8 || counts.upright >= G.ai.blueprint.requires.length + 2) {
-        return true;
-      }
-      // Sometimes declare early for safety
-      if (Math.random() < 0.3 && counts.upright >= G.ai.blueprint.requires.length) {
-        return true;
-      }
-    }
-    return false;
-  },
-
-  // Handle Eureka: choose card to play from 2 drawn
-  handleEureka(card1, card2) {
-    const needed = this.getNeededTypes();
-    const score1 = (needed.includes(card1.type) ? 10 : 0) + (card1.type === 'widget' ? 5 : 0);
-    const score2 = (needed.includes(card2.type) ? 10 : 0) + (card2.type === 'widget' ? 5 : 0);
-    return score1 >= score2 ? { play: card1, ret: card2 } : { play: card2, ret: card1 };
-  }
-};
 
 // --- GAME FLOW ---
 function startGame() {
@@ -1408,22 +882,20 @@ function chooseBlueprintOption(idx) {
   G.blueprintDeck.push(other);
   delete G.player.blueprintChoices;
   closeModal();
-  addLog(`<span class="log-player">You</span> chose a Blueprint: <span class="log-action">${G.player.blueprint.name}</span>`);
+  addLog(G, `<span class="log-player">You</span> chose a Blueprint: <span class="log-action">${G.player.blueprint.name}</span>`);
   startRound();
 }
 
 function startRound() {
   G.round++;
-  addLog(`— Round ${G.round} —`);
+  addLog(G, `— Round ${G.round} —`);
 
-  // Check 13-component limit for both players
   check13Limit('player');
   check13Limit('ai');
 
   if (G.gameOver) return;
 
-  // AI: check if should declare
-  if (AI.shouldDeclare()) {
+  if (AI.shouldDeclare(G.ai)) {
     aiDeclare();
     if (G.gameOver) return;
   }
@@ -1436,15 +908,13 @@ function check13Limit(who) {
   const counts = countComponents(p.mechanism);
   if (counts.total >= 13) {
     if (checkBlueprintSatisfied(p.mechanism, p.blueprint)) {
-      // Force declare
       if (who === 'player') {
-        addLog(`<span class="log-player">You</span> hit 13 components and must declare!`);
+        addLog(G, `<span class="log-player">You</span> hit 13 components and must declare!`);
         playerDeclare(true);
       } else {
         aiDeclare();
       }
     } else {
-      // Force collapse
       collapse(who);
     }
   }
@@ -1453,18 +923,16 @@ function check13Limit(who) {
 function collapse(who) {
   const p = G[who];
   const label = who === 'player' ? '<span class="log-player">You</span>' : '<span class="log-ai">Rival</span>';
-  addLog(`${label} <span class="log-bad">COLLAPSES!</span> Upside-down components discarded.`);
+  addLog(G, `${label} <span class="log-bad">COLLAPSES!</span> Upside-down components discarded.`);
 
-  // Remove upside-down components
   for (const key of Object.keys(p.mechanism)) {
     if (!p.mechanism[key].upright) delete p.mechanism[key];
   }
   p.tolerance = 3;
 
-  // New blueprint
   if (G.blueprintDeck.length > 0) {
     p.blueprint = G.blueprintDeck.shift();
-    addLog(`${label} draws a new Blueprint`);
+    addLog(G, `${label} draws a new Blueprint`);
   }
 
   render();
@@ -1472,7 +940,7 @@ function collapse(who) {
 
 // --- DRAFT PHASE ---
 function startDraftPhase() {
-  setPhase('draft');
+  setPhase(G, 'draft');
 
   if (G.deck.length < 4) {
     endGame();
@@ -1482,16 +950,13 @@ function startDraftPhase() {
   const playerDraw = [G.deck.shift(), G.deck.shift()];
   const aiDraw = [G.deck.shift(), G.deck.shift()];
 
-  // AI makes its choice
-  const aiChoice = AI.draftChoice(aiDraw);
+  const aiChoice = AI.draftChoice(G.ai, aiDraw);
   G.ai.hand.push(aiDraw[aiChoice.keep]);
   const aiGiftToPlayer = aiDraw[aiChoice.gift];
 
-  // Store AI gift temporarily
   G._aiGift = aiGiftToPlayer;
   G._playerDraw = playerDraw;
 
-  // Show player the choice
   showModal(
     'Draft Phase',
     'Draw 2, keep 1, gift the other to your rival. Your rival also gifts you a card.',
@@ -1506,6 +971,8 @@ function startDraftPhase() {
     <p style="margin-top:12px; font-size:11px;">Click the card you want to <strong>keep</strong>. The other goes to your rival.</p>`,
     []
   );
+
+  render();
 }
 
 function selectDraftCard(idx) {
@@ -1514,20 +981,17 @@ function selectDraftCard(idx) {
   const gifted = draw[1 - idx];
 
   G.player.hand.push(kept);
-  addLog(`<span class="log-player">You</span> keep <span class="log-action">${TYPES[kept.type].name}</span>`);
+  addLog(G, `<span class="log-player">You</span> keep <span class="log-action">${TYPES[kept.type].name}</span>`);
 
-  // Gift to AI
   placeGiftedCard('ai', gifted);
 
-  // Receive AI gift
   const aiGift = G._aiGift;
-  addLog(`<span class="log-ai">Rival</span> gifts you <span class="log-action">${TYPES[aiGift.type].name}</span>`);
+  addLog(G, `<span class="log-ai">Rival</span> gifts you <span class="log-action">${TYPES[aiGift.type].name}</span>`);
 
   delete G._aiGift;
   delete G._playerDraw;
   closeModal();
 
-  // Player must place the gifted card
   placeGiftedCardForPlayer(aiGift);
 }
 
@@ -1536,23 +1000,21 @@ function placeGiftedCard(who, card) {
   const placements = getAllValidPlacements(p.mechanism, card);
 
   if (placements.length === 0) {
-    addLog(`${who === 'player' ? '<span class="log-player">You</span>' : '<span class="log-ai">Rival</span>'} discards unplaceable gift`);
+    addLog(G, `${who === 'player' ? '<span class="log-player">You</span>' : '<span class="log-ai">Rival</span>'} discards unplaceable gift`);
     return;
   }
 
   if (who === 'ai') {
-    const good = placements.filter(p => !p.bodge);
-    const chosen = good.length > 0 ? good[0] : (Math.random() < 0.5 ? placements[0] : null);
+    const chosen = AI.chooseGiftPlacement(G.ai, card);
     if (!chosen) {
-      // AI discards if only bodge positions available sometimes
-      addLog(`<span class="log-ai">Rival</span> discards gifted <span class="log-action">${TYPES[card.type].name}</span>`);
+      addLog(G, `<span class="log-ai">Rival</span> discards gifted <span class="log-action">${TYPES[card.type].name}</span>`);
       return;
     }
     const key = posKey(chosen.row, chosen.col);
     p.mechanism[key] = { ...card, upright: true };
     p.tolerance += TYPES[card.type].tol + (chosen.bodge ? 3 : 0);
     const label = chosen.bodge ? ' (Bodged!)' : '';
-    addLog(`<span class="log-ai">Rival</span> places gifted <span class="log-action">${TYPES[card.type].name}</span>${label}`);
+    addLog(G, `<span class="log-ai">Rival</span> places gifted <span class="log-action">${TYPES[card.type].name}</span>${label}`);
   }
 }
 
@@ -1560,12 +1022,11 @@ function placeGiftedCardForPlayer(card) {
   const placements = getAllValidPlacements(G.player.mechanism, card);
 
   if (placements.length === 0) {
-    addLog(`<span class="log-player">You</span> discard unplaceable gift`);
+    addLog(G, `<span class="log-player">You</span> discard unplaceable gift`);
     startBuildPhase();
     return;
   }
 
-  // Check if all placements require bodge
   const hasGood = placements.some(p => !p.bodge);
 
   G._giftCard = card;
@@ -1573,12 +1034,11 @@ function placeGiftedCardForPlayer(card) {
   G.phase = 'place-gift';
 
   if (!hasGood) {
-    // Offer discard or bodge
     G._canDiscardGift = true;
   }
 
   render();
-  addLog(`Place the gifted <span class="log-action">${TYPES[card.type].name}</span> in your mechanism (or discard if only Bodge positions)`);
+  addLog(G, `Place the gifted <span class="log-action">${TYPES[card.type].name}</span> in your mechanism (or discard if only Bodge positions)`);
 }
 
 function placeGiftAtPosition(row, col) {
@@ -1591,17 +1051,31 @@ function placeGiftAtPosition(row, col) {
   G.player.tolerance += TYPES[card.type].tol + (placement.bodge ? 3 : 0);
 
   const label = placement.bodge ? ' <span class="log-bad">(Bodged! +3 Tolerance)</span>' : '';
-  addLog(`<span class="log-player">You</span> place gifted <span class="log-action">${TYPES[card.type].name}</span>${label}`);
+  addLog(G, `<span class="log-player">You</span> place <span class="log-action">${TYPES[card.type].name}</span>${label}`);
 
+  const wasEureka = G._eurekaMode;
   delete G._giftCard;
   delete G._giftPlacements;
   delete G._canDiscardGift;
+  delete G._eurekaMode;
 
-  startBuildPhase();
+  if (G.player.tolerance >= 12) {
+    collapse('player');
+    G._playerEurekas = 0;
+    startRepairPhase();
+    return;
+  }
+
+  if (wasEureka) {
+    if (G._playerEurekas > 0) handlePlayerEureka();
+    else startRepairPhase();
+  } else {
+    startBuildPhase();
+  }
 }
 
 function discardGift() {
-  addLog(`<span class="log-player">You</span> discard the gifted <span class="log-action">${TYPES[G._giftCard.type].name}</span>`);
+  addLog(G, `<span class="log-player">You</span> discard the gifted <span class="log-action">${TYPES[G._giftCard.type].name}</span>`);
   delete G._giftCard;
   delete G._giftPlacements;
   delete G._canDiscardGift;
@@ -1653,12 +1127,11 @@ function placeCardAtPosition(row, col) {
   G.player.cardsPlayedThisTurn++;
 
   const label = placement.bodge ? ' <span class="log-bad">(Bodged! +3 Tolerance)</span>' : '';
-  addLog(`<span class="log-player">You</span> play <span class="log-action">${TYPES[card.type].name}</span>${label}`);
+  addLog(G, `<span class="log-player">You</span> play <span class="log-action">${TYPES[card.type].name}</span>${label}`);
 
   G.selectedHandCard = null;
   G.validPlacements = [];
 
-  // Check tolerance collapse
   if (G.player.tolerance >= 12) {
     collapse('player');
   }
@@ -1668,16 +1141,14 @@ function placeCardAtPosition(row, col) {
 
 function endBuildPhase() {
   if (G.player.cardsPlayedThisTurn === 0 && G.player.hand.length > 0) {
-    addLog(`<span class="log-bad">You must play at least 1 card!</span>`);
+    addLog(G, `<span class="log-bad">You must play at least 1 card!</span>`);
     return;
   }
 
-  // Handle empty hand
   if (G.player.hand.length === 0 && G.player.cardsPlayedThisTurn === 0 && G.deck.length > 0) {
     const card = G.deck.shift();
     G.player.hand.push(card);
-    addLog(`<span class="log-player">You</span> draw <span class="log-action">${TYPES[card.type].name}</span> (empty hand)`);
-    // Must play it - select automatically
+    addLog(G, `<span class="log-player">You</span> draw <span class="log-action">${TYPES[card.type].name}</span> (empty hand)`);
     G.selectedHandCard = card.id;
     G.validPlacements = getAllValidPlacements(G.player.mechanism, card);
     render();
@@ -1685,9 +1156,17 @@ function endBuildPhase() {
   }
 
   // AI build phase
-  AI.buildPhase();
+  const aiActions = AI.buildPhase(G.ai, G.deck);
+  for (const action of aiActions) {
+    if (action.type === 'play' || action.type === 'draw-and-play') {
+      const bodgeText = action.bodge ? ' (Bodged! +3 Tolerance)' : '';
+      const prefix = action.type === 'draw-and-play' ? 'draws and plays' : 'plays';
+      addLog(G, `<span class="log-ai">Rival</span> ${prefix} <span class="log-action">${TYPES[action.card.type].name}</span>${bodgeText}`);
+    } else if (action.type === 'discard') {
+      addLog(G, `<span class="log-ai">Rival</span> discards an unplaceable card`);
+    }
+  }
 
-  // Check AI tolerance
   if (G.ai.tolerance >= 12) {
     collapse('ai');
   }
@@ -1697,7 +1176,7 @@ function endBuildPhase() {
 
 // --- BANJAX ROLL ---
 function startBanjaxRoll() {
-  setPhase('roll');
+  setPhase(G, 'roll');
 
   const playerUpright = countComponents(G.player.mechanism).upright;
   const aiUpright = countComponents(G.ai.mechanism).upright;
@@ -1706,9 +1185,7 @@ function startBanjaxRoll() {
   const aiResults = rollBanjaxDice(aiUpright, G.ai.tolerance);
 
   G._rollResults = { player: playerResults, ai: aiResults };
-  G._rollProcessed = { player: false, ai: false };
 
-  // Show results
   showDiceOverlay(playerResults, aiResults);
 }
 
@@ -1740,28 +1217,26 @@ function resolveRoll() {
   closeModal();
   const results = G._rollResults;
 
-  // Process player results
-  let playerWobbles = results.player.filter(r => r === 'wobble').length;
-  let playerEurekas = results.player.filter(r => r === 'eureka').length;
-  let playerBanjaxes = results.player.filter(r => r === 'banjax').length;
+  const playerWobbles = results.player.filter(r => r === 'wobble').length;
+  const playerEurekas = results.player.filter(r => r === 'eureka').length;
+  const playerBanjaxes = results.player.filter(r => r === 'banjax').length;
 
   G.player.tolerance += playerWobbles;
-  if (playerWobbles > 0) addLog(`<span class="log-player">You</span> Wobble ×${playerWobbles}: <span class="log-bad">+${playerWobbles} Tolerance</span>`);
+  if (playerWobbles > 0) addLog(G, `<span class="log-player">You</span> Wobble ×${playerWobbles}: <span class="log-bad">+${playerWobbles} Tolerance</span>`);
 
-  // Process AI results
-  let aiWobbles = results.ai.filter(r => r === 'wobble').length;
-  let aiEurekas = results.ai.filter(r => r === 'eureka').length;
-  let aiBanjaxes = results.ai.filter(r => r === 'banjax').length;
+  const aiWobbles = results.ai.filter(r => r === 'wobble').length;
+  const aiEurekas = results.ai.filter(r => r === 'eureka').length;
+  const aiBanjaxes = results.ai.filter(r => r === 'banjax').length;
 
   G.ai.tolerance += aiWobbles;
-  if (aiWobbles > 0) addLog(`<span class="log-ai">Rival</span> Wobble ×${aiWobbles}: <span class="log-bad">+${aiWobbles} Tolerance</span>`);
+  if (aiWobbles > 0) addLog(G, `<span class="log-ai">Rival</span> Wobble ×${aiWobbles}: <span class="log-bad">+${aiWobbles} Tolerance</span>`);
 
   // Handle AI banjaxes
   for (let i = 0; i < aiBanjaxes; i++) {
-    const target = AI.chooseBanjaxTarget();
+    const target = AI.chooseBanjaxTarget(G.ai);
     if (target) {
       G.ai.mechanism[target].upright = false;
-      addLog(`<span class="log-ai">Rival</span> <span class="log-bad">BANJAXED!</span> ${TYPES[G.ai.mechanism[target].type].name} flipped`);
+      addLog(G, `<span class="log-ai">Rival</span> <span class="log-bad">BANJAXED!</span> ${TYPES[G.ai.mechanism[target].type].name} flipped`);
     }
   }
 
@@ -1769,28 +1244,24 @@ function resolveRoll() {
   for (let i = 0; i < aiEurekas; i++) {
     if (G.deck.length >= 2) {
       const c1 = G.deck.shift(), c2 = G.deck.shift();
-      const choice = AI.handleEureka(c1, c2);
+      const choice = AI.handleEureka(G.ai, c1, c2);
       const placements = getAllValidPlacements(G.ai.mechanism, choice.play);
       if (placements.length > 0) {
         const p = placements.find(x => !x.bodge) || placements[0];
         G.ai.mechanism[posKey(p.row, p.col)] = { ...choice.play, upright: true };
         G.ai.tolerance += TYPES[choice.play.type].tol + (p.bodge ? 3 : 0);
-        addLog(`<span class="log-ai">Rival</span> <span class="log-good">Eureka!</span> Plays ${TYPES[choice.play.type].name}`);
+        addLog(G, `<span class="log-ai">Rival</span> <span class="log-good">Eureka!</span> Plays ${TYPES[choice.play.type].name}`);
       }
-      // Return other card
       G.deck.push(choice.ret);
     }
   }
 
-  // Store player banjax/eureka counts for resolution
   G._playerBanjaxes = playerBanjaxes;
   G._playerEurekas = playerEurekas;
 
-  // Check collapses
   if (G.player.tolerance >= 12) { collapse('player'); G._playerBanjaxes = 0; G._playerEurekas = 0; }
   if (G.ai.tolerance >= 12) collapse('ai');
 
-  // Handle player banjaxes
   if (G._playerBanjaxes > 0) {
     handlePlayerBanjax();
   } else if (G._playerEurekas > 0) {
@@ -1819,7 +1290,7 @@ function handlePlayerBanjax() {
   }
 
   G.phase = 'banjax-choice';
-  addLog(`<span class="log-bad">BANJAXED!</span> Choose a component to flip upside-down (${G._playerBanjaxes} remaining)`);
+  addLog(G, `<span class="log-bad">BANJAXED!</span> Choose a component to flip upside-down (${G._playerBanjaxes} remaining)`);
   render();
 }
 
@@ -1828,7 +1299,7 @@ function chooseBanjaxTarget(key) {
   if (!G.player.mechanism[key] || !G.player.mechanism[key].upright) return;
 
   G.player.mechanism[key].upright = false;
-  addLog(`<span class="log-player">You</span> flip <span class="log-bad">${TYPES[G.player.mechanism[key].type].name}</span> upside-down`);
+  addLog(G, `<span class="log-player">You</span> flip <span class="log-bad">${TYPES[G.player.mechanism[key].type].name}</span> upside-down`);
   G._playerBanjaxes--;
 
   if (G._playerBanjaxes > 0) {
@@ -1872,13 +1343,11 @@ function resolveEureka(idx) {
   const playCard = cards[idx];
   const retCard = cards[1 - idx];
 
-  // Return other to deck
   G.deck.push(retCard);
 
-  // Place the played card
   const placements = getAllValidPlacements(G.player.mechanism, playCard);
   if (placements.length === 0) {
-    addLog(`<span class="log-player">You</span> <span class="log-good">Eureka!</span> but card is unplaceable — discarded`);
+    addLog(G, `<span class="log-player">You</span> <span class="log-good">Eureka!</span> but card is unplaceable — discarded`);
     closeModal();
     delete G._eurekaCards;
     if (G._playerEurekas > 0) handlePlayerEureka();
@@ -1892,21 +1361,23 @@ function resolveEureka(idx) {
   G.phase = 'place-gift';
   G._eurekaMode = true;
 
-  addLog(`<span class="log-good">Eureka!</span> Place <span class="log-action">${TYPES[playCard.type].name}</span> in your mechanism`);
+  addLog(G, `<span class="log-good">Eureka!</span> Place <span class="log-action">${TYPES[playCard.type].name}</span> in your mechanism`);
   delete G._eurekaCards;
   render();
 }
 
-// Override gift placement to continue eureka flow
-const origPlaceGiftAtPosition = placeGiftAtPosition;
-// We handle this in the main placeGiftAtPosition function
-
 // --- REPAIR PHASE ---
 function startRepairPhase() {
-  setPhase('repair');
+  setPhase(G, 'repair');
 
-  // AI repair
-  AI.repairPhase();
+  const repairAction = AI.repairPhase(G.ai);
+  if (repairAction) {
+    if (repairAction.type === 'repair') {
+      addLog(G, `<span class="log-ai">Rival</span> repairs <span class="log-action">${TYPES[G.ai.mechanism[repairAction.target].type].name}</span>`);
+    } else if (repairAction.type === 'reduce-tolerance') {
+      addLog(G, `<span class="log-ai">Rival</span> reduces tolerance by 1`);
+    }
+  }
 
   G.phase = 'repair';
   render();
@@ -1917,12 +1388,11 @@ function repairFlip(key) {
   if (G.player.hand.length === 0) return;
   if (!G.player.mechanism[key] || G.player.mechanism[key].upright) return;
 
-  // Discard cheapest card from hand
   const card = G.player.hand.sort((a, b) => TYPES[a.type].tol - TYPES[b.type].tol)[0];
   G.player.hand = G.player.hand.filter(c => c.id !== card.id);
   G.player.mechanism[key].upright = true;
 
-  addLog(`<span class="log-player">You</span> repair <span class="log-good">${TYPES[G.player.mechanism[key].type].name}</span> (discard ${TYPES[card.type].name})`);
+  addLog(G, `<span class="log-player">You</span> repair <span class="log-good">${TYPES[G.player.mechanism[key].type].name}</span> (discard ${TYPES[card.type].name})`);
   endRepairPhase();
 }
 
@@ -1931,22 +1401,20 @@ function repairTolerance() {
   const card = G.player.hand.sort((a, b) => TYPES[a.type].tol - TYPES[b.type].tol)[0];
   G.player.hand = G.player.hand.filter(c => c.id !== card.id);
   G.player.tolerance = Math.max(1, G.player.tolerance - 1);
-  addLog(`<span class="log-player">You</span> reduce Tolerance by 1 (discard ${TYPES[card.type].name})`);
+  addLog(G, `<span class="log-player">You</span> reduce Tolerance by 1 (discard ${TYPES[card.type].name})`);
   endRepairPhase();
 }
 
 function skipRepair() {
-  addLog(`<span class="log-player">You</span> skip repair`);
+  addLog(G, `<span class="log-player">You</span> skip repair`);
   endRepairPhase();
 }
 
 function endRepairPhase() {
-  // Check deck
   if (G.deck.length === 0) {
     endGame();
     return;
   }
-
   startRound();
 }
 
@@ -1954,7 +1422,7 @@ function endRepairPhase() {
 function playerDeclare(forced = false) {
   if (!forced && !checkBlueprintSatisfied(G.player.mechanism, G.player.blueprint)) {
     G.player.tolerance += 3;
-    addLog(`<span class="log-player">You</span> <span class="log-bad">FAILED declaration!</span> +3 Tolerance`);
+    addLog(G, `<span class="log-player">You</span> <span class="log-bad">FAILED declaration!</span> +3 Tolerance`);
     if (G.player.tolerance >= 12) collapse('player');
     render();
     return;
@@ -1965,14 +1433,13 @@ function playerDeclare(forced = false) {
     G.player.score += result.total;
     G.player.blueprintsComplete++;
 
-    addLog(`<span class="log-player">You</span> <span class="log-good">COMPLETE</span> ${G.player.blueprint.name}! Base: ${result.base}, Excess: +${result.excess}, Penalty: ${result.penalty}, Total: ${result.total}`);
+    addLog(G, `<span class="log-player">You</span> <span class="log-good">COMPLETE</span> ${G.player.blueprint.name}! Base: ${result.base}, Excess: +${result.excess}, Penalty: ${result.penalty}, Total: ${result.total}`);
 
     if (G.player.blueprintsComplete >= 2) {
       showVictory('player');
       return;
     }
 
-    // Reset
     G.player.mechanism = {};
     G.player.tolerance = 3;
     G.player.hand = [];
@@ -1990,14 +1457,13 @@ function aiDeclare() {
   G.ai.score += result.total;
   G.ai.blueprintsComplete++;
 
-  addLog(`<span class="log-ai">Rival</span> <span class="log-good">COMPLETES</span> ${G.ai.blueprint.name}! Score: ${result.total}`);
+  addLog(G, `<span class="log-ai">Rival</span> <span class="log-good">COMPLETES</span> ${G.ai.blueprint.name}! Score: ${result.total}`);
 
   if (G.ai.blueprintsComplete >= 2) {
     showVictory('ai');
     return;
   }
 
-  // Reset AI
   G.ai.mechanism = {};
   G.ai.tolerance = 3;
   G.ai.hand = [];
@@ -2033,311 +1499,21 @@ function showVictory(winner) {
 
 // --- RENDER ---
 function render() {
-  renderPlayerInfo();
-  renderAIInfo();
-  renderMechanism();
-  renderHand();
-  renderActionBar();
-  renderDrawPile();
+  renderPlayerInfo(G);
+  renderAIInfo(G);
+  renderMechanism(G);
+  renderHand(G);
+  renderActionBar(G);
+  renderDrawPile(G);
 }
 
-function renderPlayerInfo() {
-  document.getElementById('player-bp-count').textContent = `${G.player.blueprintsComplete}/2`;
-  document.getElementById('player-score').textContent = G.player.score;
-
-  // Tolerance
-  const tol = G.player.tolerance;
-  const pct = Math.min(100, (tol / 12) * 100);
-  document.getElementById('player-tol-fill').style.width = pct + '%';
-  document.getElementById('player-tol-num').textContent = tol;
-  const tolDisplay = document.getElementById('player-tol-display');
-  tolDisplay.className = 'tolerance-display ' + (tol <= 6 ? 'tol-safe' : tol <= 8 ? 'tol-warn' : 'tol-danger');
-
-  // Blueprint
-  const bpDiv = document.getElementById('player-blueprint');
-  if (G.player.blueprint) {
-    const bp = G.player.blueprint;
-    const uprightTypes = getUprightTypes(G.player.mechanism);
-    const available = [...uprightTypes];
-    const fulfilled = bp.requires.map(req => {
-      let idx = available.indexOf(req);
-      if (idx !== -1) { available.splice(idx, 1); return true; }
-      idx = available.indexOf('widget');
-      if (idx !== -1) { available.splice(idx, 1); return true; }
-      return false;
-    });
-
-    bpDiv.innerHTML = `
-      <div class="blueprint-card">
-        <div class="bp-name">${bp.name}</div>
-        <div class="bp-requirements">
-          ${bp.requires.map((r, i) => `<span class="bp-req ${fulfilled[i] ? 'fulfilled' : 'missing'}">${TYPES[r].name}</span>`).join('')}
-        </div>
-      </div>`;
-  }
-
-  // Component counts
-  const counts = countComponents(G.player.mechanism);
-  document.getElementById('player-upright-count').textContent = counts.upright;
-  document.getElementById('player-flipped-count').textContent = counts.flipped;
-  const compBadge = document.getElementById('player-comp-count');
-  compBadge.textContent = `${counts.total}/13`;
-  compBadge.className = 'comp-count-badge ' + (counts.total < 10 ? 'comp-count-ok' : counts.total < 12 ? 'comp-count-warn' : 'comp-count-crit');
-}
-
-function renderAIInfo() {
-  document.getElementById('ai-bp-count').textContent = `${G.ai.blueprintsComplete}/2`;
-  document.getElementById('ai-score').textContent = G.ai.score;
-
-  const tol = G.ai.tolerance;
-  const pct = Math.min(100, (tol / 12) * 100);
-  document.getElementById('ai-tol-fill').style.width = pct + '%';
-  document.getElementById('ai-tol-num').textContent = tol;
-  const tolDisplay = document.getElementById('ai-tol-display');
-  tolDisplay.className = 'tolerance-display ' + (tol <= 6 ? 'tol-safe' : tol <= 8 ? 'tol-warn' : 'tol-danger');
-
-  const counts = countComponents(G.ai.mechanism);
-  document.getElementById('ai-comp-count').textContent = `${counts.total}/13`;
-  document.getElementById('ai-comp-count').className = 'comp-count-badge ' + (counts.total < 10 ? 'comp-count-ok' : counts.total < 12 ? 'comp-count-warn' : 'comp-count-crit');
-
-  document.getElementById('ai-hand-count').textContent = `${G.ai.hand.length} cards`;
-
-  // Mini mechanism display
-  const display = document.getElementById('ai-mechanism-display');
-  const keys = Object.keys(G.ai.mechanism);
-  if (keys.length === 0) {
-    display.innerHTML = '<span style="font-size:11px; color:var(--text-dim)">Empty</span>';
-  } else {
-    display.innerHTML = `<div class="ai-mechanism-mini">
-      ${keys.map(k => {
-        const c = G.ai.mechanism[k];
-        return `<div class="ai-mini-card ${c.upright ? '' : 'upside-down'}" style="background:${TYPES[c.type].color}33; border-color:${TYPES[c.type].color}66" title="${TYPES[c.type].name}${c.upright ? '' : ' (flipped)'}">${TYPES[c.type].icon}</div>`;
-      }).join('')}
-    </div>`;
-  }
-}
-
-function renderMechanism() {
-  const container = document.getElementById('player-mechanism');
-  const mech = G.player.mechanism;
-  const keys = Object.keys(mech);
-
-  // Determine grid bounds (with padding for placement)
-  let bounds;
-  if (keys.length === 0) {
-    bounds = { minR: 2, maxR: 4, minC: 4, maxC: 6 };
-  } else {
-    bounds = getMechanismBounds(mech);
-    bounds.minR -= 1; bounds.maxR += 1;
-    bounds.minC -= 1; bounds.maxC += 1;
-  }
-
-  const rows = bounds.maxR - bounds.minR + 1;
-  const cols = bounds.maxC - bounds.minC + 1;
-
-  let html = `<div class="mechanism-grid" style="grid-template-columns: repeat(${cols}, 82px); grid-template-rows: repeat(${rows}, 102px);">`;
-
-  for (let r = bounds.minR; r <= bounds.maxR; r++) {
-    for (let c = bounds.minC; c <= bounds.maxC; c++) {
-      const key = posKey(r, c);
-      const card = mech[key];
-
-      if (card) {
-        const isClickable = G.phase === 'banjax-choice' && card.upright;
-        const isRepairable = G.phase === 'repair' && !card.upright;
-        html += `<div class="grid-cell occupied">
-          <div class="placed-card">
-            ${renderCardInGrid(card, isClickable ? `chooseBanjaxTarget('${key}')` : (isRepairable ? `repairFlip('${key}')` : null))}
-          </div>
-        </div>`;
-      } else {
-        // Check if valid placement
-        let placementClass = '';
-        let onclick = '';
-
-        if (G.phase === 'build' && G.selectedHandCard !== null) {
-          const p = G.validPlacements.find(p => p.row === r && p.col === c);
-          if (p) {
-            placementClass = p.bodge ? 'bodge-placement' : 'valid-placement';
-            onclick = `placeCardAtPosition(${r}, ${c})`;
-          }
-        } else if (G.phase === 'place-gift' && G._giftPlacements) {
-          const p = G._giftPlacements.find(p => p.row === r && p.col === c);
-          if (p) {
-            placementClass = p.bodge ? 'bodge-placement' : 'valid-placement';
-            onclick = `placeGiftAtPosition(${r}, ${c})`;
-          }
-        }
-
-        html += `<div class="grid-cell ${placementClass}" ${onclick ? `onclick="${onclick}"` : ''}></div>`;
-      }
-    }
-  }
-
-  html += '</div>';
-  container.innerHTML = html;
-}
-
-function renderCardInGrid(card, onclick) {
-  const t = TYPES[card.type];
-  const cls = card.upright ? '' : 'upside-down';
-  const clickAttr = onclick ? `onclick="${onclick}" style="cursor:pointer; border-color:${card.upright ? 'var(--danger)' : 'var(--success)'}"` : '';
-
-  return `<div class="component-card ${cls}" ${clickAttr}>
-    ${renderEdgeSymbols(card)}
-    <div class="card-type-icon">${t.icon}</div>
-    <div class="card-type-name" style="color:${t.color}">${t.name}</div>
-    <div class="card-tol">${t.tol > 0 ? '+' + t.tol : ''}</div>
-  </div>`;
-}
-
-function renderEdgeSymbols(card) {
-  const dirs = ['top', 'right', 'bottom', 'left'];
-  return dirs.map((dir, i) => {
-    const edge = card.edges[i];
-    let cls, label;
-    if (edge === '+') { cls = 'edge-plus'; label = '+'; }
-    else if (edge === '-') { cls = 'edge-minus'; label = '−'; }
-    else if (edge === 'blank') { cls = 'edge-blank'; label = '○'; }
-    else { cls = 'edge-star'; label = '★'; }
-    return `<div class="edge-symbol ${dir} ${cls}">${label}</div>`;
-  }).join('');
-}
-
-function renderCardHTML(card, selected, onclick) {
-  const t = TYPES[card.type];
-  return `<div class="component-card ${selected ? 'selected' : ''}" onclick="${onclick}">
-    ${renderEdgeSymbols(card)}
-    <div class="card-type-icon">${t.icon}</div>
-    <div class="card-type-name" style="color:${t.color}">${t.name}</div>
-    <div class="card-tol">${t.tol > 0 ? '+' + t.tol : ''}</div>
-  </div>`;
-}
-
-function renderHand() {
-  const hand = document.getElementById('player-hand');
-  if (G.phase === 'build' || G.phase === 'repair') {
-    hand.innerHTML = G.player.hand.map(card =>
-      renderCardHTML(card, G.selectedHandCard === card.id, `selectHandCard(${card.id})`)
-    ).join('');
-  } else {
-    hand.innerHTML = G.player.hand.map(card =>
-      renderCardHTML(card, false, '')
-    ).join('');
-  }
-}
-
-function renderActionBar() {
-  const bar = document.getElementById('action-bar');
-  let html = '';
-
-  if (G.phase === 'build') {
-    const canDeclare = checkBlueprintSatisfied(G.player.mechanism, G.player.blueprint);
-    html += `<button class="btn btn-success" ${canDeclare ? '' : 'disabled'} onclick="playerDeclare()">Declare Complete</button>`;
-    html += `<button class="btn btn-primary" onclick="endBuildPhase()">End Build (${G.player.cardsPlayedThisTurn}/3 played)</button>`;
-  } else if (G.phase === 'repair') {
-    const hasFlipped = Object.keys(G.player.mechanism).some(k => !G.player.mechanism[k].upright);
-    html += `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;">Repair: click a flipped card to repair, or:</span>`;
-    if (G.player.hand.length > 0 && G.player.tolerance > 1) {
-      html += `<button class="btn btn-secondary" onclick="repairTolerance()">−1 Tolerance</button>`;
-    }
-    html += `<button class="btn btn-primary" onclick="skipRepair()">Skip</button>`;
-  } else if (G.phase === 'place-gift') {
-    if (G._canDiscardGift) {
-      html += `<button class="btn btn-danger" onclick="discardGift()">Discard Gift</button>`;
-    }
-    html += `<span style="font-size:11px; color:var(--text-dim);">Click a highlighted cell to place the gifted card</span>`;
-  } else if (G.phase === 'banjax-choice') {
-    html += `<span style="font-size:11px; color:var(--danger);">Click an upright component to flip it (Banjaxed!)</span>`;
-  }
-
-  bar.innerHTML = html;
-}
-
-function renderDrawPile() {
-  document.getElementById('draw-pile-count').textContent = G.deck.length;
-}
-
-// --- UI HELPERS ---
-function setPhase(phase) {
-  G.phase = phase;
-  const phaseMap = {
-    draft: { text: 'Draft', cls: 'phase-draft' },
-    build: { text: 'Build', cls: 'phase-build' },
-    roll: { text: 'Banjax Roll', cls: 'phase-roll' },
-    repair: { text: 'Repair', cls: 'phase-repair' },
-    'place-gift': { text: 'Place Gift', cls: 'phase-build' },
-    'banjax-choice': { text: 'Banjaxed!', cls: 'phase-roll' },
-  };
-  const p = phaseMap[phase] || { text: phase, cls: 'phase-draft' };
-  document.getElementById('phase-display').innerHTML = `<span class="phase-indicator ${p.cls}">${p.text}</span>`;
-  render();
-}
-
-function addLog(msg) {
-  G.log.push(msg);
-  const logDiv = document.getElementById('game-log');
-  logDiv.innerHTML += `<div class="log-entry">${msg}</div>`;
-  logDiv.scrollTop = logDiv.scrollHeight;
-}
-
-function showModal(title, desc, content, buttons) {
-  const root = document.getElementById('modal-root');
-  const btnHTML = buttons.map(b => `<button class="btn ${b.class}" onclick="${b.action}">${b.text}</button>`).join('');
-  root.innerHTML = `<div class="modal-overlay"><div class="modal">
-    <h2>${title}</h2>
-    <p>${desc}</p>
-    ${content}
-    <div style="margin-top:16px">${btnHTML}</div>
-  </div></div>`;
-}
-
-function closeModal() {
-  document.getElementById('modal-root').innerHTML = '';
-}
-
-// Override placeGiftAtPosition to handle eureka mode
-const _origPlaceGift = placeGiftAtPosition;
-window.placeGiftAtPosition = function(row, col) {
-  const card = G._giftCard;
-  const placement = G._giftPlacements.find(p => p.row === row && p.col === col);
-  if (!placement) return;
-
-  const key = posKey(row, col);
-  G.player.mechanism[key] = { ...card, upright: true };
-  G.player.tolerance += TYPES[card.type].tol + (placement.bodge ? 3 : 0);
-
-  const label = placement.bodge ? ' <span class="log-bad">(Bodged! +3 Tolerance)</span>' : '';
-  addLog(`<span class="log-player">You</span> place <span class="log-action">${TYPES[card.type].name}</span>${label}`);
-
-  const wasEureka = G._eurekaMode;
-  delete G._giftCard;
-  delete G._giftPlacements;
-  delete G._canDiscardGift;
-  delete G._eurekaMode;
-
-  // Check tolerance collapse
-  if (G.player.tolerance >= 12) {
-    collapse('player');
-    G._playerEurekas = 0;
-    startRepairPhase();
-    return;
-  }
-
-  if (wasEureka) {
-    if (G._playerEurekas > 0) handlePlayerEureka();
-    else startRepairPhase();
-  } else {
-    startBuildPhase();
-  }
-};
-
-// Make functions global
+// --- EXPOSE TO GLOBAL SCOPE (for onclick handlers in HTML) ---
 window.startGame = startGame;
 window.chooseBlueprintOption = chooseBlueprintOption;
 window.selectDraftCard = selectDraftCard;
 window.selectHandCard = selectHandCard;
 window.placeCardAtPosition = placeCardAtPosition;
+window.placeGiftAtPosition = placeGiftAtPosition;
 window.endBuildPhase = endBuildPhase;
 window.resolveRoll = resolveRoll;
 window.chooseBanjaxTarget = chooseBanjaxTarget;
