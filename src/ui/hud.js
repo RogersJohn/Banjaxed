@@ -58,7 +58,7 @@ export function renderOpponents(state) {
     const mechKeys = Object.keys(p.mechanism);
     let mechHTML;
     if (mechKeys.length === 0) {
-      mechHTML = '<span style="font-size:11px; color:var(--text-dim)">Empty</span>';
+      mechHTML = '<span style="font-size:13px; color:var(--text-dim)">Empty</span>';
     } else {
       const isTarget = state.phase === 'spanner-target' && state._spannerTargetPlayerIndex === i && state.pendingSpanner;
       const destroyable = isTarget && state.pendingSpanner.action === 'destroy' ? getDestroyableKeys(p.mechanism) : [];
@@ -96,7 +96,7 @@ export function renderOpponents(state) {
         <span class="comp-count-badge ${compClass}">${counts.total}/13</span>
       </div>
       ${mechHTML}
-      <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">${p.hand.length} cards in hand</div>
+      <div style="font-size:13px; color:var(--text-dim); margin-top:4px;">${p.hand.length} cards in hand</div>
     </div>`;
   }
   panel.innerHTML = html;
@@ -112,40 +112,28 @@ export function renderActionBar(state) {
     html += `<button class="btn btn-success" ${canDeclare ? '' : 'disabled'} onclick="playerDeclare()">Declare Complete</button>`;
     html += `<button class="btn btn-primary" onclick="endBuildPhase()">End Build (${human.cardsPlayedThisTurn}/3 played)</button>`;
   } else if (state.phase === 'repair') {
-    const cardSelected = state.selectedRepairCard != null;
-    const hasFlipped = Object.values(human.mechanism).some(c => !c.upright);
-
-    if (!cardSelected) {
-      html += `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;">Select a card from your hand to discard, then choose an action:</span>`;
-    } else {
-      html += `<span style="font-size:11px; color:var(--accent); margin-right:8px;">Card selected — now choose:</span>`;
-    }
-
-    if (hasFlipped) {
-      html += `<span style="font-size:11px; color:var(--text-dim); margin-right:4px;">${cardSelected ? 'Click a flipped component to repair it, or:' : ''}</span>`;
-    }
-
+    html += `<span style="font-size:13px; color:var(--text-dim); margin-right:8px;">Repair: click a flipped card to repair, or:</span>`;
     if (human.hand.length > 0 && human.tolerance > 1) {
-      html += `<button class="btn btn-secondary" ${cardSelected ? '' : 'disabled'} onclick="repairTolerance()">−1 Tolerance (discard selected)</button>`;
+      html += `<button class="btn btn-secondary" onclick="repairTolerance()">−1 Tolerance</button>`;
     }
-    html += `<button class="btn btn-primary" onclick="skipRepair()">Skip (no discard)</button>`;
+    html += `<button class="btn btn-primary" onclick="skipRepair()">Skip</button>`;
   } else if (state.phase === 'place-gift') {
     if (state._canDiscardGift) {
       html += `<button class="btn btn-danger" onclick="discardGift()">Discard Gift</button>`;
     }
-    html += `<span style="font-size:11px; color:var(--text-dim);">Click a highlighted cell to place the gifted card</span>`;
+    html += `<span style="font-size:13px; color:var(--text-dim);">Click a highlighted cell to place the gifted card</span>`;
   } else if (state.phase === 'banjax-choice') {
-    html += `<span style="font-size:11px; color:var(--danger);">Click an upright component to flip it (Banjaxed!)</span>`;
+    html += `<span style="font-size:13px; color:var(--danger);">Click an upright component to flip it (Banjaxed!)</span>`;
   } else if (state.phase === 'draft') {
     if (human.hasRetrievedThisDraft === false && getRetrievableKeys(human.mechanism).length > 0) {
       html += `<button class="btn btn-secondary" onclick="startRetrieval()">Retrieve a Component</button>`;
     }
   } else if (state.phase === 'retrieve') {
-    html += `<span style="font-size:11px; color:var(--accent);">Click a highlighted component to retrieve it to your hand</span>`;
+    html += `<span style="font-size:13px; color:var(--accent);">Click a highlighted component to retrieve it to your hand</span>`;
     html += `<button class="btn btn-secondary" onclick="cancelRetrieval()" style="margin-left:8px;">Cancel</button>`;
   } else if (state.phase === 'spanner-target') {
     const actionName = state.pendingSpanner ? state.pendingSpanner.action.toUpperCase() : '';
-    html += `<span style="font-size:11px; color:var(--spanner); margin-right:8px;">Spanner: ${actionName} — choose target:</span>`;
+    html += `<span style="font-size:13px; color:var(--spanner); margin-right:8px;">Spanner: ${actionName} — choose target:</span>`;
     for (let i = 0; i < state.playerCount; i++) {
       const label = i === 0 ? 'You' : `Automaton ${i}`;
       const active = state._spannerTargetPlayerIndex === i;

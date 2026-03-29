@@ -24,7 +24,7 @@ export function renderCardHTML(card, selected, onclick) {
     return `<div class="component-card spanner-card ${selected ? 'selected' : ''}" onclick="${onclick}" style="border-color:var(--spanner); background:linear-gradient(135deg, #3d2e18, #2a2218);">
       <div class="card-type-icon" style="font-size:28px;">${t.icon}</div>
       <div class="card-type-name" style="color:var(--spanner); font-weight:600;">SPANNER</div>
-      <div style="font-size:8px; color:var(--text-dim); line-height:1.3; margin-top:2px;">DESTROY / FIX / REDUCE TOL</div>
+      <div style="font-size:11px; color:var(--text-dim); line-height:1.3; margin-top:2px;">DESTROY / FIX / REDUCE TOL</div>
     </div>`;
   }
 
