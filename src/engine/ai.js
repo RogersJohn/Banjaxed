@@ -164,6 +164,11 @@ export function handleEureka(aiState, card1, card2) {
   return score1 >= score2 ? { play: card1, ret: card2 } : { play: card2, ret: card1 };
 }
 
+// TODO: Intentionally conservative pending playtesting — AI does not retrieve for now.
+export function shouldRetrieve(aiState) {
+  return false;
+}
+
 export function chooseGiftPlacement(aiState, card) {
   const placements = getAllValidPlacements(aiState.mechanism, card);
   if (placements.length === 0) return null;

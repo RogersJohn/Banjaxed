@@ -68,9 +68,14 @@ export function renderMechanism(state) {
       if (card) {
         const isClickable = state.phase === 'banjax-choice' && card.upright;
         const isRepairable = state.phase === 'repair' && !card.upright;
+        const isRetrievable = state.phase === 'retrieve' && state.validRetrievals && state.validRetrievals.includes(key);
+        let onclick = null;
+        if (isClickable) onclick = `chooseBanjaxTarget('${key}')`;
+        else if (isRepairable) onclick = `repairFlip('${key}')`;
+        else if (isRetrievable) onclick = `retrieveCard('${key}')`;
         html += `<div class="grid-cell occupied">
           <div class="placed-card">
-            ${renderCardInGrid(card, isClickable ? `chooseBanjaxTarget('${key}')` : (isRepairable ? `repairFlip('${key}')` : null))}
+            ${renderCardInGrid(card, onclick)}
           </div>
         </div>`;
       } else {

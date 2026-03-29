@@ -1,7 +1,7 @@
 // Tolerance dial, score, status, and general UI helpers
 
 import { TYPES } from '../data/components.js';
-import { countComponents, getUprightTypes, checkBlueprintSatisfied } from '../engine/rules.js';
+import { countComponents, getUprightTypes, checkBlueprintSatisfied, getRetrievableKeys } from '../engine/rules.js';
 
 export function renderPlayerInfo(state) {
   document.getElementById('player-bp-count').textContent = `${state.player.blueprintsComplete}/2`;
@@ -96,6 +96,13 @@ export function renderActionBar(state) {
     html += `<span style="font-size:11px; color:var(--text-dim);">Click a highlighted cell to place the gifted card</span>`;
   } else if (state.phase === 'banjax-choice') {
     html += `<span style="font-size:11px; color:var(--danger);">Click an upright component to flip it (Banjaxed!)</span>`;
+  } else if (state.phase === 'draft') {
+    if (state.player.hasRetrievedThisDraft === false && getRetrievableKeys(state.player.mechanism).length > 0) {
+      html += `<button class="btn btn-secondary" onclick="startRetrieval()">Retrieve a Component</button>`;
+    }
+  } else if (state.phase === 'retrieve') {
+    html += `<span style="font-size:11px; color:var(--accent);">Click a highlighted component to retrieve it to your hand</span>`;
+    html += `<button class="btn btn-secondary" onclick="cancelRetrieval()" style="margin-left:8px;">Cancel</button>`;
   }
 
   bar.innerHTML = html;
@@ -114,6 +121,7 @@ export function setPhase(state, phase) {
     repair: { text: 'Repair', cls: 'phase-repair' },
     'place-gift': { text: 'Place Gift', cls: 'phase-build' },
     'banjax-choice': { text: 'Banjaxed!', cls: 'phase-roll' },
+    'retrieve': { text: 'Retrieve', cls: 'phase-draft' },
   };
   const p = phaseMap[phase] || { text: phase, cls: 'phase-draft' };
   document.getElementById('phase-display').innerHTML = `<span class="phase-indicator ${p.cls}">${p.text}</span>`;

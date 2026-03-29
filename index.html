@@ -826,7 +826,7 @@ import { TYPES } from './src/data/components.js';
 import { createInitialState, dealBlueprintChoices, dealStartingHands } from './src/engine/state.js';
 import {
   posKey, getAllValidPlacements, countComponents,
-  checkBlueprintSatisfied, scoreBlueprint
+  checkBlueprintSatisfied, scoreBlueprint, getRetrievableKeys
 } from './src/engine/rules.js';
 import { rollBanjaxDice } from './src/engine/dice.js';
 import * as AI from './src/engine/ai.js';
@@ -941,6 +941,8 @@ function collapse(who) {
 // --- DRAFT PHASE ---
 function startDraftPhase() {
   setPhase(G, 'draft');
+  G.player.hasRetrievedThisDraft = false;
+  G.ai.hasRetrievedThisDraft = false;
 
   if (G.deck.length < 4) {
     endGame();
@@ -1084,6 +1086,30 @@ function discardGift() {
   delete G._giftPlacements;
   delete G._canDiscardGift;
   startBuildPhase();
+}
+
+// --- RETRIEVAL ---
+function startRetrieval() {
+  G.phase = 'retrieve';
+  G.validRetrievals = getRetrievableKeys(G.player.mechanism);
+  render();
+}
+
+function cancelRetrieval() {
+  delete G.validRetrievals;
+  setPhase(G, 'draft');
+  render();
+}
+
+function retrieveCard(key) {
+  const card = G.player.mechanism[key];
+  delete G.player.mechanism[key];
+  G.player.hand.push(card);
+  G.player.hasRetrievedThisDraft = true;
+  delete G.validRetrievals;
+  setPhase(G, 'draft');
+  addLog(G, `<span class="log-player">You</span> retrieve <span class="log-action">${TYPES[card.type].name}</span> from mechanism`);
+  render();
 }
 
 // --- BUILD PHASE ---
@@ -1573,6 +1599,9 @@ window.repairFlip = repairFlip;
 window.repairTolerance = repairTolerance;
 window.skipRepair = skipRepair;
 window.discardGift = discardGift;
+window.startRetrieval = startRetrieval;
+window.cancelRetrieval = cancelRetrieval;
+window.retrieveCard = retrieveCard;
 window.playerDeclare = playerDeclare;
 </script>
 </body>

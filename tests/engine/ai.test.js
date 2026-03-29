@@ -1,7 +1,7 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   getNeededTypes, draftChoice, chooseBanjaxTarget,
-  shouldDeclare, handleEureka, chooseGiftPlacement
+  shouldDeclare, handleEureka, chooseGiftPlacement, shouldRetrieve
 } from '../../src/engine/ai.js';
 
 function makeAiState(overrides = {}) {
@@ -133,6 +133,20 @@ describe('handleEureka', () => {
     const result = handleEureka(ai, c1, c2);
     expect(result.play.type).toBe('widget');
     expect(result.ret.type).toBe('lever');
+  });
+});
+
+describe('shouldRetrieve', () => {
+  test('returns false (conservative stub)', () => {
+    const ai = makeAiState({
+      mechanism: {
+        '3_5': { type: 'gear', upright: true },
+        '3_6': { type: 'spring', upright: true },
+        '4_6': { type: 'cable', upright: true },
+      },
+      tolerance: 10,
+    });
+    expect(shouldRetrieve(ai)).toBe(false);
   });
 });
 

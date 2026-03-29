@@ -3,7 +3,7 @@ import {
   parsePos, posKey, getMechanismBounds, getNeighborKeys, DIR_INDEX,
   checkEdgeCompatibility, canPlaceCard, getAllValidPlacements,
   countComponents, getUprightTypes, checkBlueprintSatisfied,
-  isConnectedWithout, scoreBlueprint
+  isConnectedWithout, getRetrievableKeys, scoreBlueprint
 } from '../../src/engine/rules.js';
 
 describe('parsePos / posKey', () => {
@@ -286,6 +286,65 @@ describe('isConnectedWithout', () => {
     };
     // Removing middle card disconnects the two ends
     expect(isConnectedWithout(mech, '3_5')).toBe(false);
+  });
+});
+
+describe('getRetrievableKeys', () => {
+  test('returns empty for mechanisms with 2 or fewer cards', () => {
+    expect(getRetrievableKeys({})).toEqual([]);
+    expect(getRetrievableKeys({ '3_5': { type: 'gear', upright: true } })).toEqual([]);
+    expect(getRetrievableKeys({
+      '3_5': { type: 'gear', upright: true },
+      '3_6': { type: 'spring', upright: true },
+    })).toEqual([]);
+  });
+
+  test('returns empty when all upright cards are bridges', () => {
+    // Linear chain: removing any middle card disconnects
+    const mech = {
+      '3_4': { type: 'gear', upright: true },
+      '3_5': { type: 'spring', upright: true },
+      '3_6': { type: 'cable', upright: true },
+    };
+    // 3_5 is a bridge, 3_4 and 3_6 are ends — but removing an end leaves 2 connected
+    // Actually, removing 3_4 leaves 3_5 and 3_6 connected, so 3_4 IS retrievable
+    const keys = getRetrievableKeys(mech);
+    // End cards are retrievable, bridge is not
+    expect(keys).toContain('3_4');
+    expect(keys).toContain('3_6');
+    expect(keys).not.toContain('3_5');
+  });
+
+  test('returns non-bridge upright cards', () => {
+    // L-shape: 3_5, 3_6, 4_6 — removing 3_5 leaves 3_6 and 4_6 connected
+    const mech = {
+      '3_5': { type: 'gear', upright: true },
+      '3_6': { type: 'spring', upright: true },
+      '4_6': { type: 'cable', upright: true },
+    };
+    const keys = getRetrievableKeys(mech);
+    expect(keys).toContain('3_5');
+    expect(keys).toContain('4_6');
+  });
+
+  test('does not return upside-down cards', () => {
+    const mech = {
+      '3_5': { type: 'gear', upright: false },
+      '3_6': { type: 'spring', upright: true },
+      '4_6': { type: 'cable', upright: true },
+    };
+    const keys = getRetrievableKeys(mech);
+    expect(keys).not.toContain('3_5');
+  });
+
+  test('does not return a card whose removal disconnects the mechanism', () => {
+    const mech = {
+      '3_4': { type: 'gear', upright: true },
+      '3_5': { type: 'spring', upright: true },
+      '3_6': { type: 'cable', upright: true },
+    };
+    const keys = getRetrievableKeys(mech);
+    expect(keys).not.toContain('3_5'); // bridge card
   });
 });
 

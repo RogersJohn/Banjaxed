@@ -154,6 +154,12 @@ export function isConnectedWithout(mech, removeKey) {
   return visited.size === keys.length;
 }
 
+export function getRetrievableKeys(mech) {
+  const keys = Object.keys(mech);
+  if (keys.length <= 2) return [];
+  return keys.filter(k => mech[k].upright && isConnectedWithout(mech, k));
+}
+
 export function scoreBlueprint(mech, blueprint) {
   const uprightTypes = getUprightTypes(mech);
   const available = [...uprightTypes];
