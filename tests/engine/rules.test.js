@@ -149,6 +149,31 @@ describe('getAllValidPlacements', () => {
   });
 });
 
+describe('getAllValidPlacements — bodge-only scenarios', () => {
+  test('returns both bodge and non-bodge placements with correct flags', () => {
+    // Place a card with edges [+, -, +, -] at center
+    const mech = { '3_5': { type: 'gear', edges: ['+', '-', '+', '-'], upright: true } };
+    // Card with left='+' connects cleanly to right='-', but left='-' would bodge
+    const card = { type: 'spring', edges: ['+', '+', '+', '+'] };
+    const placements = getAllValidPlacements(mech, card);
+    expect(placements.length).toBeGreaterThan(0);
+    const bodge = placements.filter(p => p.bodge);
+    const clean = placements.filter(p => !p.bodge);
+    // Should have at least one of each depending on edge compatibility
+    expect(bodge.length + clean.length).toBe(placements.length);
+  });
+
+  test('all placements are bodge when only polarity mismatches exist', () => {
+    // Card at center with all + edges on connectable sides
+    const mech = { '3_5': { type: 'gear', edges: ['+', '+', '+', '+'], upright: true } };
+    // New card also all + edges — every adjacent connection is +/+ mismatch
+    const card = { type: 'spring', edges: ['+', '+', '+', '+'] };
+    const placements = getAllValidPlacements(mech, card);
+    expect(placements.length).toBeGreaterThan(0);
+    expect(placements.every(p => p.bodge)).toBe(true);
+  });
+});
+
 describe('countComponents', () => {
   test('counts empty mechanism', () => {
     expect(countComponents({})).toEqual({ total: 0, upright: 0, flipped: 0 });

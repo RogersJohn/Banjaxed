@@ -1038,7 +1038,11 @@ function placeGiftedCardForPlayer(card) {
   }
 
   render();
-  addLog(G, `Place the gifted <span class="log-action">${TYPES[card.type].name}</span> in your mechanism (or discard if only Bodge positions)`);
+  if (!hasGood) {
+    addLog(G, `All positions for <span class="log-action">${TYPES[card.type].name}</span> require a Bodge (+3 Tolerance). You may place or discard.`);
+  } else {
+    addLog(G, `Place the gifted <span class="log-action">${TYPES[card.type].name}</span> in your mechanism`);
+  }
 }
 
 function placeGiftAtPosition(row, col) {
