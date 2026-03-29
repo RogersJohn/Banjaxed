@@ -53,7 +53,7 @@ function renderCardInGrid(card, onclick) {
 
 export function renderMechanism(state) {
   const container = document.getElementById('player-mechanism');
-  const mech = state.player.mechanism;
+  const mech = state.players[0].mechanism;
   const keys = Object.keys(mech);
 
   let bounds;
@@ -79,7 +79,7 @@ export function renderMechanism(state) {
         const isClickable = state.phase === 'banjax-choice' && card.upright;
         const isRepairable = state.phase === 'repair' && !card.upright;
         const isRetrievable = state.phase === 'retrieve' && state.validRetrievals && state.validRetrievals.includes(key);
-        const isSpannerTarget = state.phase === 'spanner-target' && state._spannerTargetWho === 'player' && state.pendingSpanner && (
+        const isSpannerTarget = state.phase === 'spanner-target' && state._spannerTargetPlayerIndex === 0 && state.pendingSpanner && (
           (state.pendingSpanner.action === 'destroy' && getDestroyableKeys(mech).includes(key)) ||
           (state.pendingSpanner.action === 'fix' && !card.upright)
         );
@@ -87,7 +87,7 @@ export function renderMechanism(state) {
         if (isClickable) onclick = `chooseBanjaxTarget('${key}')`;
         else if (isRepairable) onclick = `repairFlip('${key}')`;
         else if (isRetrievable) onclick = `retrieveCard('${key}')`;
-        else if (isSpannerTarget) onclick = `executeSpanner('${key}', 'player')`;
+        else if (isSpannerTarget) onclick = `executeSpanner('${key}', 0)`;
         html += `<div class="grid-cell occupied">
           <div class="placed-card">
             ${renderCardInGrid(card, onclick)}

@@ -58,7 +58,7 @@ export function createPlayerState() {
   };
 }
 
-export function createInitialState() {
+export function createInitialState(playerCount = 2) {
   const deck = shuffle(buildDeck());
   const blueprintDeck = shuffle([...BLUEPRINTS]);
 
@@ -67,8 +67,8 @@ export function createInitialState() {
     blueprintDeck,
     round: 0,
     phase: 'draft',
-    player: createPlayerState(),
-    ai: createPlayerState(),
+    playerCount,
+    players: Array.from({ length: playerCount }, () => createPlayerState()),
     selectedHandCard: null,
     validPlacements: [],
     gameOver: false,
@@ -77,14 +77,14 @@ export function createInitialState() {
 }
 
 export function dealStartingHands(state) {
-  for (const who of ['player', 'ai']) {
+  for (let i = 0; i < state.playerCount; i++) {
     let dealt = 0;
     while (dealt < 4 && state.deck.length > 0) {
       const card = state.deck.shift();
       if (card.type === 'spanner') {
         state.deck.push(card);
       } else {
-        state[who].hand.push(card);
+        state.players[i].hand.push(card);
         dealt++;
       }
     }
@@ -92,12 +92,22 @@ export function dealStartingHands(state) {
 }
 
 export function dealBlueprintChoices(state) {
-  const playerChoices = [state.blueprintDeck.shift(), state.blueprintDeck.shift()];
-  state.player.blueprintChoices = playerChoices;
+  // Human player gets a choice
+  state.players[0].blueprintChoices = [
+    state.blueprintDeck.shift(),
+    state.blueprintDeck.shift(),
+  ];
 
-  const aiChoices = [state.blueprintDeck.shift(), state.blueprintDeck.shift()];
-  state.ai.blueprint = aiChoices[0].requires.length <= aiChoices[1].requires.length
-    ? aiChoices[0]
-    : aiChoices[1];
-  state.blueprintDeck.push(aiChoices[0] === state.ai.blueprint ? aiChoices[1] : aiChoices[0]);
+  // Each AI picks the shorter blueprint from 2 options
+  for (let i = 1; i < state.playerCount; i++) {
+    const choices = [state.blueprintDeck.shift(), state.blueprintDeck.shift()];
+    const chosen = choices[0].requires.length <= choices[1].requires.length ? choices[0] : choices[1];
+    state.players[i].blueprint = chosen;
+    state.blueprintDeck.push(choices[0] === chosen ? choices[1] : choices[0]);
+  }
+}
+
+export function playerLabel(state, index) {
+  if (index === 0) return 'You';
+  return `Automaton ${index}`;
 }

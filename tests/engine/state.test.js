@@ -1,7 +1,8 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   generateEdges, createCard, buildDeck, shuffle,
-  createPlayerState, createInitialState, dealStartingHands, dealBlueprintChoices
+  createPlayerState, createInitialState, dealStartingHands, dealBlueprintChoices,
+  playerLabel
 } from '../../src/engine/state.js';
 
 describe('generateEdges', () => {
@@ -63,18 +64,14 @@ describe('buildDeck', () => {
     for (const card of deck) {
       counts[card.type] = (counts[card.type] || 0) + 1;
     }
-    // 5 common types x 10 each
     expect(counts.spring).toBe(10);
     expect(counts.gear).toBe(10);
     expect(counts.piston).toBe(10);
     expect(counts.cable).toBe(10);
     expect(counts.wheel).toBe(10);
-    // 10 specialist types x 5 each
     expect(counts.lever).toBe(5);
     expect(counts.cam).toBe(5);
-    // Widgets
     expect(counts.widget).toBe(10);
-    // Spanners
     expect(counts.spanner).toBe(10);
   });
 
@@ -120,6 +117,26 @@ describe('createPlayerState', () => {
 });
 
 describe('createInitialState', () => {
+  test('default creates 2 players', () => {
+    const state = createInitialState();
+    expect(state.playerCount).toBe(2);
+    expect(state.players).toHaveLength(2);
+  });
+
+  test('creates N players when specified', () => {
+    for (const n of [2, 3, 4, 5]) {
+      const state = createInitialState(n);
+      expect(state.playerCount).toBe(n);
+      expect(state.players).toHaveLength(n);
+    }
+  });
+
+  test('does not have player or ai properties', () => {
+    const state = createInitialState();
+    expect(state).not.toHaveProperty('player');
+    expect(state).not.toHaveProperty('ai');
+  });
+
   test('creates a valid game state', () => {
     const state = createInitialState();
     expect(state.deck).toHaveLength(120);
@@ -127,21 +144,30 @@ describe('createInitialState', () => {
     expect(state.round).toBe(0);
     expect(state.phase).toBe('draft');
     expect(state.gameOver).toBe(false);
-    expect(state.player.tolerance).toBe(3);
-    expect(state.ai.tolerance).toBe(3);
+    expect(state.players[0].tolerance).toBe(3);
+    expect(state.players[1].tolerance).toBe(3);
   });
 });
 
 describe('dealBlueprintChoices', () => {
-  test('gives player 2 choices and AI 1 blueprint', () => {
+  test('gives human 2 choices and each AI 1 blueprint', () => {
     const state = createInitialState();
+    dealBlueprintChoices(state);
+    expect(state.players[0].blueprintChoices).toHaveLength(2);
+    expect(state.players[1].blueprint).toBeDefined();
+    expect(state.players[1].blueprint.requires).toBeDefined();
+  });
+
+  test('handles 5 players correctly', () => {
+    const state = createInitialState(5);
     const initialBpCount = state.blueprintDeck.length;
     dealBlueprintChoices(state);
-    expect(state.player.blueprintChoices).toHaveLength(2);
-    expect(state.ai.blueprint).toBeDefined();
-    expect(state.ai.blueprint.requires).toBeDefined();
-    // 4 drawn (2 per player), 1 returned = net -3
-    expect(state.blueprintDeck.length).toBe(initialBpCount - 3);
+    expect(state.players[0].blueprintChoices).toHaveLength(2);
+    for (let i = 1; i < 5; i++) {
+      expect(state.players[i].blueprint).toBeDefined();
+    }
+    // 2 for human + 2×4 AIs = 10 drawn, 4 returned = net 6
+    expect(state.blueprintDeck.length).toBe(initialBpCount - 6);
   });
 });
 
@@ -150,8 +176,17 @@ describe('dealStartingHands', () => {
     const state = createInitialState();
     dealBlueprintChoices(state);
     dealStartingHands(state);
-    expect(state.player.hand).toHaveLength(4);
-    expect(state.ai.hand).toHaveLength(4);
+    expect(state.players[0].hand).toHaveLength(4);
+    expect(state.players[1].hand).toHaveLength(4);
+  });
+
+  test('deals 4 cards to each of N players', () => {
+    const state = createInitialState(4);
+    dealBlueprintChoices(state);
+    dealStartingHands(state);
+    for (let i = 0; i < 4; i++) {
+      expect(state.players[i].hand).toHaveLength(4);
+    }
   });
 
   test('never deals a spanner to starting hands', () => {
@@ -159,8 +194,19 @@ describe('dealStartingHands', () => {
       const state = createInitialState();
       dealBlueprintChoices(state);
       dealStartingHands(state);
-      expect(state.player.hand.every(c => c.type !== 'spanner')).toBe(true);
-      expect(state.ai.hand.every(c => c.type !== 'spanner')).toBe(true);
+      expect(state.players[0].hand.every(c => c.type !== 'spanner')).toBe(true);
+      expect(state.players[1].hand.every(c => c.type !== 'spanner')).toBe(true);
     }
+  });
+});
+
+describe('playerLabel', () => {
+  test('returns You for index 0', () => {
+    expect(playerLabel({}, 0)).toBe('You');
+  });
+
+  test('returns Automaton N for index N', () => {
+    expect(playerLabel({}, 1)).toBe('Automaton 1');
+    expect(playerLabel({}, 3)).toBe('Automaton 3');
   });
 });

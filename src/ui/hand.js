@@ -5,11 +5,11 @@ import { renderCardHTML } from './board.js';
 export function renderHand(state) {
   const hand = document.getElementById('player-hand');
   if (state.phase === 'build' || state.phase === 'repair') {
-    hand.innerHTML = state.player.hand.map(card =>
+    hand.innerHTML = state.players[0].hand.map(card =>
       renderCardHTML(card, state.selectedHandCard === card.id, `selectHandCard(${card.id})`)
     ).join('');
   } else {
-    hand.innerHTML = state.player.hand.map(card => {
+    hand.innerHTML = state.players[0].hand.map(card => {
       const spannerClick = card.type === 'spanner' ? `selectHandCard(${card.id})` : '';
       return renderCardHTML(card, false, spannerClick);
     }).join('');

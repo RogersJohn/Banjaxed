@@ -1,7 +1,8 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   getNeededTypes, draftChoice, chooseBanjaxTarget,
-  shouldDeclare, handleEureka, chooseGiftPlacement, shouldRetrieve, playSpanner
+  shouldDeclare, handleEureka, chooseGiftPlacement, shouldRetrieve, playSpanner,
+  chooseGiftDirection
 } from '../../src/engine/ai.js';
 
 function makeAiState(overrides = {}) {
@@ -153,7 +154,7 @@ describe('shouldRetrieve', () => {
 describe('playSpanner', () => {
   test('returns null when AI has no spanners', () => {
     const ai = makeAiState({ hand: [makeCard(1, 'gear')] });
-    expect(playSpanner(ai, {}, [])).toBeNull();
+    expect(playSpanner(ai, 1, [{}, ai.mechanism], [])).toBeNull();
   });
 
   test('returns fix action when AI has a needed flipped component', () => {
@@ -165,10 +166,10 @@ describe('playSpanner', () => {
         '4_6': { type: 'cable', upright: true },
       },
     });
-    const result = playSpanner(ai, {}, []);
+    const result = playSpanner(ai, 1, [{}, ai.mechanism], []);
     expect(result).not.toBeNull();
     expect(result.action).toBe('fix');
-    expect(result.targetWho).toBe('ai');
+    expect(result.targetPlayerIndex).toBe(1);
     expect(result.targetKey).toBe('3_5');
   });
 
@@ -182,10 +183,10 @@ describe('playSpanner', () => {
       },
       tolerance: 9,
     });
-    const result = playSpanner(ai, {}, []);
+    const result = playSpanner(ai, 1, [{}, ai.mechanism], []);
     expect(result).not.toBeNull();
     expect(result.action).toBe('reduce');
-    expect(result.targetWho).toBe('ai');
+    expect(result.targetPlayerIndex).toBe(1);
   });
 
   test('returns null when no beneficial play exists', () => {
@@ -198,9 +199,24 @@ describe('playSpanner', () => {
       },
       tolerance: 5,
     });
-    // Empty player mechanism — nothing to destroy
-    const result = playSpanner(ai, {}, []);
+    const result = playSpanner(ai, 1, [{}, ai.mechanism], []);
     expect(result).toBeNull();
+  });
+});
+
+describe('chooseGiftDirection', () => {
+  test('gifts to left when left has higher tolerance', () => {
+    const ai = makeAiState();
+    const left = makeAiState({ tolerance: 8 });
+    const right = makeAiState({ tolerance: 4 });
+    expect(chooseGiftDirection(ai, left, right)).toBe('left');
+  });
+
+  test('gifts to right when right has higher tolerance', () => {
+    const ai = makeAiState();
+    const left = makeAiState({ tolerance: 3 });
+    const right = makeAiState({ tolerance: 7 });
+    expect(chooseGiftDirection(ai, left, right)).toBe('right');
   });
 });
 

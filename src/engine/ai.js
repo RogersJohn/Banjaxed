@@ -171,7 +171,7 @@ export function shouldRetrieve(aiState) {
 }
 
 // TODO: Add reactive spanner plays (on opponent's turn) in a future iteration.
-export function playSpanner(aiState, playerMech, deck) {
+export function playSpanner(aiState, aiIndex, allMechanisms, deck) {
   const spanners = aiState.hand.filter(c => c.type === 'spanner');
   if (spanners.length === 0) return null;
 
@@ -182,29 +182,32 @@ export function playSpanner(aiState, playerMech, deck) {
   const flippedKeys = Object.keys(aiState.mechanism).filter(k => !aiState.mechanism[k].upright);
   for (const k of flippedKeys) {
     if (needed.includes(aiState.mechanism[k].type)) {
-      return { spannerCardId: spanner.id, action: 'fix', targetWho: 'ai', targetKey: k };
+      return { spannerCardId: spanner.id, action: 'fix', targetPlayerIndex: aiIndex, targetKey: k };
     }
   }
 
   // Priority 2: Reduce own Tolerance if >= 9
   if (aiState.tolerance >= 9) {
-    return { spannerCardId: spanner.id, action: 'reduce', targetWho: 'ai', targetKey: null };
+    return { spannerCardId: spanner.id, action: 'reduce', targetPlayerIndex: aiIndex, targetKey: null };
   }
 
-  // Priority 3: Destroy player component needed for their blueprint (if known to be close)
-  const playerUprightCount = countComponents(playerMech).upright;
-  if (playerUprightCount >= 4) {
-    const destroyable = getDestroyableKeys(playerMech);
-    if (destroyable.length > 0) {
-      return { spannerCardId: spanner.id, action: 'destroy', targetWho: 'player', targetKey: destroyable[0] };
+  // Priority 3: Destroy opponent component (targets any non-self player with >= 4 upright)
+  for (let i = 0; i < allMechanisms.length; i++) {
+    if (i === aiIndex) continue;
+    const mech = allMechanisms[i];
+    if (countComponents(mech).upright >= 4) {
+      const destroyable = getDestroyableKeys(mech);
+      if (destroyable.length > 0) {
+        return { spannerCardId: spanner.id, action: 'destroy', targetPlayerIndex: i, targetKey: destroyable[0] };
+      }
     }
   }
 
-  // Priority 4: Reduce player Tolerance if in dangerous range
-  // (We don't have access to player tolerance here in a pure function,
-  //  so this is handled at the call site if needed)
-
   return null;
+}
+
+export function chooseGiftDirection(aiState, leftState, rightState) {
+  return (leftState.tolerance >= rightState.tolerance) ? 'left' : 'right';
 }
 
 export function chooseGiftPlacement(aiState, card) {
