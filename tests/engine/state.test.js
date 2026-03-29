@@ -1,3 +1,8 @@
+// Note: repair card selection (G.selectedRepairCard) and the Build Phase
+// declaration prompt are orchestration-layer behaviours tested manually.
+// Engine functions used: checkBlueprintSatisfied, countComponents (both
+// already have full test coverage).
+
 import { describe, test, expect } from '@jest/globals';
 import {
   generateEdges, createCard, buildDeck, shuffle,

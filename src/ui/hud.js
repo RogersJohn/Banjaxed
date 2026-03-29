@@ -112,11 +112,23 @@ export function renderActionBar(state) {
     html += `<button class="btn btn-success" ${canDeclare ? '' : 'disabled'} onclick="playerDeclare()">Declare Complete</button>`;
     html += `<button class="btn btn-primary" onclick="endBuildPhase()">End Build (${human.cardsPlayedThisTurn}/3 played)</button>`;
   } else if (state.phase === 'repair') {
-    html += `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;">Repair: click a flipped card to repair, or:</span>`;
-    if (human.hand.length > 0 && human.tolerance > 1) {
-      html += `<button class="btn btn-secondary" onclick="repairTolerance()">−1 Tolerance</button>`;
+    const cardSelected = state.selectedRepairCard != null;
+    const hasFlipped = Object.values(human.mechanism).some(c => !c.upright);
+
+    if (!cardSelected) {
+      html += `<span style="font-size:11px; color:var(--text-dim); margin-right:8px;">Select a card from your hand to discard, then choose an action:</span>`;
+    } else {
+      html += `<span style="font-size:11px; color:var(--accent); margin-right:8px;">Card selected — now choose:</span>`;
     }
-    html += `<button class="btn btn-primary" onclick="skipRepair()">Skip</button>`;
+
+    if (hasFlipped) {
+      html += `<span style="font-size:11px; color:var(--text-dim); margin-right:4px;">${cardSelected ? 'Click a flipped component to repair it, or:' : ''}</span>`;
+    }
+
+    if (human.hand.length > 0 && human.tolerance > 1) {
+      html += `<button class="btn btn-secondary" ${cardSelected ? '' : 'disabled'} onclick="repairTolerance()">−1 Tolerance (discard selected)</button>`;
+    }
+    html += `<button class="btn btn-primary" onclick="skipRepair()">Skip (no discard)</button>`;
   } else if (state.phase === 'place-gift') {
     if (state._canDiscardGift) {
       html += `<button class="btn btn-danger" onclick="discardGift()">Discard Gift</button>`;

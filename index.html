@@ -1224,6 +1224,30 @@ function startBuildPhase() {
   human().cardsPlayedThisTurn = 0;
   G.selectedHandCard = null;
   G.validPlacements = [];
+  G.selectedRepairCard = null;
+
+  // Rules: "At the start of your Build Phase, you may declare Complete."
+  if (checkBlueprintSatisfied(human().mechanism, human().blueprint)) {
+    const counts = countComponents(human().mechanism);
+    const minRequired = human().blueprint.requires.length;
+    const potentialExcess = Math.min(3, counts.upright - minRequired);
+
+    showModal(
+      'Declare Complete?',
+      'Your Blueprint requirements are satisfied. Declare now, or keep building to earn the Excess Bonus.',
+      `<div style="display:flex; gap:20px; justify-content:center; margin:12px 0; font-family:'Source Code Pro',monospace; font-size:12px; flex-wrap:wrap;">
+        <div style="color:var(--text-dim)">Upright: <strong style="color:var(--text)">${counts.upright}</strong></div>
+        <div style="color:var(--text-dim)">Required: <strong style="color:var(--text)">${minRequired}</strong></div>
+        <div style="color:var(--accent)">Potential excess bonus: <strong>+${potentialExcess}</strong></div>
+        <div style="color:var(--danger)">Upside-down penalty: <strong>${counts.flipped > 0 ? `−${counts.flipped * 2}` : '0'}</strong></div>
+      </div>`,
+      [
+        { text: 'Declare Complete', class: 'btn-success', action: 'playerDeclare()' },
+        { text: 'Keep Building', class: 'btn-secondary', action: 'closeModal()' },
+      ]
+    );
+  }
+
   render();
 }
 
@@ -1569,6 +1593,7 @@ function resolveEurekaDeckReturn(position) {
 // --- REPAIR PHASE ---
 function startRepairPhase() {
   setPhase(G, 'repair');
+  G.selectedRepairCard = null;
 
   for (let i = 1; i < G.playerCount; i++) {
     const repairAction = AI.repairPhase(G.players[i]);
@@ -1586,14 +1611,28 @@ function startRepairPhase() {
   render();
 }
 
+function selectRepairCard(cardId) {
+  if (G.phase !== 'repair') return;
+  G.selectedRepairCard = (G.selectedRepairCard === cardId) ? null : cardId;
+  render();
+}
+
 function repairFlip(key) {
   if (G.phase !== 'repair') return;
   if (human().hand.length === 0) return;
   if (!human().mechanism[key] || human().mechanism[key].upright) return;
 
-  const card = human().hand.sort((a, b) => TYPES[a.type].tol - TYPES[b.type].tol)[0];
+  if (G.selectedRepairCard === null || G.selectedRepairCard === undefined) {
+    addLog(G, `<span class="log-bad">Select a card from your hand to discard first, then click the component to repair.</span>`);
+    return;
+  }
+
+  const card = human().hand.find(c => c.id === G.selectedRepairCard);
+  if (!card) return;
+
   human().hand = human().hand.filter(c => c.id !== card.id);
   human().mechanism[key].upright = true;
+  G.selectedRepairCard = null;
 
   addLog(G, `<span class="log-player">You</span> repair <span class="log-good">${TYPES[human().mechanism[key].type].name}</span> (discard ${TYPES[card.type].name})`);
   endRepairPhase();
@@ -1601,14 +1640,25 @@ function repairFlip(key) {
 
 function repairTolerance() {
   if (G.phase !== 'repair' || human().hand.length === 0) return;
-  const card = human().hand.sort((a, b) => TYPES[a.type].tol - TYPES[b.type].tol)[0];
+
+  if (G.selectedRepairCard === null || G.selectedRepairCard === undefined) {
+    addLog(G, `<span class="log-bad">Select a card from your hand to discard first.</span>`);
+    return;
+  }
+
+  const card = human().hand.find(c => c.id === G.selectedRepairCard);
+  if (!card) return;
+
   human().hand = human().hand.filter(c => c.id !== card.id);
   human().tolerance = Math.max(1, human().tolerance - 1);
+  G.selectedRepairCard = null;
+
   addLog(G, `<span class="log-player">You</span> reduce Tolerance by 1 (discard ${TYPES[card.type].name})`);
   endRepairPhase();
 }
 
 function skipRepair() {
+  G.selectedRepairCard = null;
   addLog(G, `<span class="log-player">You</span> skip repair`);
   endRepairPhase();
 }
@@ -1748,6 +1798,7 @@ window.resolveRoll = resolveRoll;
 window.chooseBanjaxTarget = chooseBanjaxTarget;
 window.resolveEureka = resolveEureka;
 window.resolveEurekaDeckReturn = resolveEurekaDeckReturn;
+window.selectRepairCard = selectRepairCard;
 window.repairFlip = repairFlip;
 window.repairTolerance = repairTolerance;
 window.skipRepair = skipRepair;
