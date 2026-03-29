@@ -1509,11 +1509,23 @@ function aiDeclare() {
 
 function endGame() {
   G.gameOver = true;
-  const winner = G.player.score > G.ai.score ? 'player' : (G.ai.score > G.player.score ? 'ai' : 'tie');
-  showVictory(winner);
+  let winner;
+  let tiebreaker = false;
+  if (G.player.score > G.ai.score) {
+    winner = 'player';
+  } else if (G.ai.score > G.player.score) {
+    winner = 'ai';
+  } else {
+    const playerCount = countComponents(G.player.mechanism).total;
+    const aiCount = countComponents(G.ai.mechanism).total;
+    if (playerCount < aiCount) { winner = 'player'; tiebreaker = true; }
+    else if (aiCount < playerCount) { winner = 'ai'; tiebreaker = true; }
+    else winner = 'tie';
+  }
+  showVictory(winner, tiebreaker);
 }
 
-function showVictory(winner) {
+function showVictory(winner, tiebreaker = false) {
   G.gameOver = true;
   const title = winner === 'player' ? 'Victory!' : (winner === 'ai' ? 'Defeat!' : 'Draw!');
   const msg = winner === 'player'
@@ -1522,11 +1534,15 @@ function showVictory(winner) {
       ? 'The Automaton\'s mechanisms outperformed yours. A humbling outcome.'
       : 'Both inventors are equally questionable.');
 
+  const tiebreakerHTML = tiebreaker
+    ? `<div style="font-size:12px; color:var(--accent); margin-top:8px; font-style:italic;">Tiebreaker: fewer components in mechanism (You: ${countComponents(G.player.mechanism).total}, Rival: ${countComponents(G.ai.mechanism).total})</div>`
+    : '';
+
   showModal(title, msg,
     `<div style="display:flex; gap:24px; justify-content:center; margin:12px 0">
       <div><div style="font-size:11px; color:var(--text-dim)">Your Score</div><div style="font-family:'Playfair Display',serif; font-size:28px; color:var(--accent)">${G.player.score}</div></div>
       <div><div style="font-size:11px; color:var(--text-dim)">Rival Score</div><div style="font-family:'Playfair Display',serif; font-size:28px; color:#8ab8e8">${G.ai.score}</div></div>
-    </div>`,
+    </div>${tiebreakerHTML}`,
     [{ text: 'Play Again', class: 'btn-primary', action: 'location.reload()' }]
   );
 }
