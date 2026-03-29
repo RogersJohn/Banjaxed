@@ -1347,10 +1347,9 @@ function resolveEureka(idx) {
   const playCard = cards[idx];
   const retCard = cards[1 - idx];
 
-  G.deck.push(retCard);
-
   const placements = getAllValidPlacements(G.player.mechanism, playCard);
   if (placements.length === 0) {
+    G.deck.push(retCard);
     addLog(G, `<span class="log-player">You</span> <span class="log-good">Eureka!</span> but card is unplaceable — discarded`);
     closeModal();
     delete G._eurekaCards;
@@ -1359,14 +1358,45 @@ function resolveEureka(idx) {
     return;
   }
 
+  // Store the card to play and ask where to return the unchosen card
+  G._eurekaPlayCard = playCard;
+  G._eurekaPlayPlacements = placements;
+  G._eurekaRetCard = retCard;
+  delete G._eurekaCards;
+
+  showModal(
+    'Return Unchosen Card',
+    `Return the <strong>${TYPES[retCard.type].name}</strong> to the top or bottom of the deck.`,
+    '',
+    [
+      { text: 'Top of Deck', class: 'btn-primary', action: 'resolveEurekaDeckReturn("top")' },
+      { text: 'Bottom of Deck', class: 'btn-secondary', action: 'resolveEurekaDeckReturn("bottom")' },
+    ]
+  );
+}
+
+function resolveEurekaDeckReturn(position) {
+  const retCard = G._eurekaRetCard;
+  const playCard = G._eurekaPlayCard;
+  const placements = G._eurekaPlayPlacements;
+
+  if (position === 'top') {
+    G.deck.unshift(retCard);
+  } else {
+    G.deck.push(retCard);
+  }
+
+  delete G._eurekaRetCard;
+  delete G._eurekaPlayCard;
+  delete G._eurekaPlayPlacements;
+
   closeModal();
   G._giftCard = playCard;
   G._giftPlacements = placements;
   G.phase = 'place-gift';
   G._eurekaMode = true;
 
-  addLog(G, `<span class="log-good">Eureka!</span> Place <span class="log-action">${TYPES[playCard.type].name}</span> in your mechanism`);
-  delete G._eurekaCards;
+  addLog(G, `<span class="log-good">Eureka!</span> Place <span class="log-action">${TYPES[playCard.type].name}</span> in your mechanism (returned card to ${position})`);
   render();
 }
 
@@ -1522,6 +1552,7 @@ window.endBuildPhase = endBuildPhase;
 window.resolveRoll = resolveRoll;
 window.chooseBanjaxTarget = chooseBanjaxTarget;
 window.resolveEureka = resolveEureka;
+window.resolveEurekaDeckReturn = resolveEurekaDeckReturn;
 window.repairFlip = repairFlip;
 window.repairTolerance = repairTolerance;
 window.skipRepair = skipRepair;
