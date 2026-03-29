@@ -3,7 +3,7 @@
 // Operates only on information a human player would have.
 
 import { TYPES } from '../data/components.js';
-import { getAllValidPlacements, countComponents, getUprightTypes, checkBlueprintSatisfied, posKey } from './rules.js';
+import { getAllValidPlacements, countComponents, getUprightTypes, checkBlueprintSatisfied, posKey, getDestroyableKeys } from './rules.js';
 
 export function getNeededTypes(blueprint, mechanism) {
   const have = getUprightTypes(mechanism);
@@ -20,6 +20,7 @@ export function draftChoice(aiState, drawnCards) {
 
   const scores = drawnCards.map((card, idx) => {
     let score = 0;
+    if (card.type === 'spanner') { score += 8; return { card, idx, score }; }
     if (needed.includes(card.type)) score += 10;
     if (card.type === 'widget') score += 5;
     if (TYPES[card.type].tol === 0) score += 2;
@@ -167,6 +168,43 @@ export function handleEureka(aiState, card1, card2) {
 // TODO: Intentionally conservative pending playtesting — AI does not retrieve for now.
 export function shouldRetrieve(aiState) {
   return false;
+}
+
+// TODO: Add reactive spanner plays (on opponent's turn) in a future iteration.
+export function playSpanner(aiState, playerMech, deck) {
+  const spanners = aiState.hand.filter(c => c.type === 'spanner');
+  if (spanners.length === 0) return null;
+
+  const spanner = spanners[0];
+  const needed = getNeededTypes(aiState.blueprint, aiState.mechanism);
+
+  // Priority 1: Fix own flipped component that is needed for Blueprint
+  const flippedKeys = Object.keys(aiState.mechanism).filter(k => !aiState.mechanism[k].upright);
+  for (const k of flippedKeys) {
+    if (needed.includes(aiState.mechanism[k].type)) {
+      return { spannerCardId: spanner.id, action: 'fix', targetWho: 'ai', targetKey: k };
+    }
+  }
+
+  // Priority 2: Reduce own Tolerance if >= 9
+  if (aiState.tolerance >= 9) {
+    return { spannerCardId: spanner.id, action: 'reduce', targetWho: 'ai', targetKey: null };
+  }
+
+  // Priority 3: Destroy player component needed for their blueprint (if known to be close)
+  const playerUprightCount = countComponents(playerMech).upright;
+  if (playerUprightCount >= 4) {
+    const destroyable = getDestroyableKeys(playerMech);
+    if (destroyable.length > 0) {
+      return { spannerCardId: spanner.id, action: 'destroy', targetWho: 'player', targetKey: destroyable[0] };
+    }
+  }
+
+  // Priority 4: Reduce player Tolerance if in dangerous range
+  // (We don't have access to player tolerance here in a pure function,
+  //  so this is handled at the call site if needed)
+
+  return null;
 }
 
 export function chooseGiftPlacement(aiState, card) {

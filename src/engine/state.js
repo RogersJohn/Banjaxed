@@ -1,6 +1,6 @@
 // Immutable game state model — pure functions, no DOM, no side effects
 
-import { TYPES, COMMON_TYPES, SPECIALIST_TYPES, COMMON_COUNT, SPECIALIST_COUNT, WIDGET_COUNT } from '../data/components.js';
+import { TYPES, COMMON_TYPES, SPECIALIST_TYPES, COMMON_COUNT, SPECIALIST_COUNT, WIDGET_COUNT, SPANNER_COUNT } from '../data/components.js';
 import { BLUEPRINTS } from '../data/blueprints.js';
 
 export function generateEdges() {
@@ -15,9 +15,11 @@ export function generateEdges() {
 }
 
 export function createCard(id, type) {
-  const edges = type === 'widget'
+  const edges = (type === 'widget')
     ? ['star', 'star', 'star', 'star']
-    : generateEdges();
+    : (type === 'spanner')
+      ? [null, null, null, null]
+      : generateEdges();
   return { id, type, edges, upright: true };
 }
 
@@ -31,6 +33,7 @@ export function buildDeck() {
     for (let i = 0; i < SPECIALIST_COUNT; i++) deck.push(createCard(id++, type));
   }
   for (let i = 0; i < WIDGET_COUNT; i++) deck.push(createCard(id++, 'widget'));
+  for (let i = 0; i < SPANNER_COUNT; i++) deck.push(createCard(id++, 'spanner'));
   return deck;
 }
 
@@ -74,9 +77,17 @@ export function createInitialState() {
 }
 
 export function dealStartingHands(state) {
-  for (let i = 0; i < 4; i++) {
-    state.player.hand.push(state.deck.shift());
-    state.ai.hand.push(state.deck.shift());
+  for (const who of ['player', 'ai']) {
+    let dealt = 0;
+    while (dealt < 4 && state.deck.length > 0) {
+      const card = state.deck.shift();
+      if (card.type === 'spanner') {
+        state.deck.push(card);
+      } else {
+        state[who].hand.push(card);
+        dealt++;
+      }
+    }
   }
 }
 

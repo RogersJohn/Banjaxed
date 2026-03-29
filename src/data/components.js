@@ -17,6 +17,7 @@ export const TYPES = {
   escapement: { name: 'Escapement', icon: '⏱️', tol: 1, category: 'specialist', color: 'var(--escapement)' },
   crank:      { name: 'Crank',      icon: '🔄', tol: 1, category: 'specialist', color: 'var(--crank)' },
   widget:     { name: 'Widget',     icon: '★',  tol: 0, category: 'wildcard', color: 'var(--widget)' },
+  spanner:    { name: 'Spanner',    icon: '🪛', tol: 0, category: 'spanner', color: 'var(--spanner)' },
 };
 
 export const COMMON_TYPES = ['spring', 'gear', 'piston', 'cable', 'wheel'];
@@ -24,3 +25,4 @@ export const SPECIALIST_TYPES = ['lever', 'pulley', 'flywheel', 'bellows', 'pin'
 export const COMMON_COUNT = 10;
 export const SPECIALIST_COUNT = 5;
 export const WIDGET_COUNT = 10;
+export const SPANNER_COUNT = 10;

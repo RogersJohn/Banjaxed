@@ -34,6 +34,7 @@ export function getNeighborKeys(r, c) {
 export const DIR_INDEX = { top: 0, right: 1, bottom: 2, left: 3 };
 
 export function checkEdgeCompatibility(cardEdge, neighborEdge) {
+  if (cardEdge === null || neighborEdge === null) return false;
   if (cardEdge === 'star' || neighborEdge === 'star') return true;
   if (cardEdge === 'blank' || neighborEdge === 'blank') return false;
   return (cardEdge === '+' && neighborEdge === '-') || (cardEdge === '-' && neighborEdge === '+');
@@ -58,7 +59,7 @@ export function canPlaceCard(mech, card, row, col) {
     const myEdge = card.edges[DIR_INDEX[n.dir]];
     const theirEdge = nCard.edges[DIR_INDEX[n.oppDir]];
 
-    if (myEdge === 'blank' || theirEdge === 'blank') {
+    if (myEdge === null || theirEdge === null || myEdge === 'blank' || theirEdge === 'blank') {
       if (myEdge !== 'star' && theirEdge !== 'star') {
         hasBlankViolation = true;
       }
@@ -158,6 +159,16 @@ export function getRetrievableKeys(mech) {
   const keys = Object.keys(mech);
   if (keys.length <= 2) return [];
   return keys.filter(k => mech[k].upright && isConnectedWithout(mech, k));
+}
+
+export function isSpanner(card) {
+  return card.type === 'spanner';
+}
+
+export function getDestroyableKeys(mech) {
+  const keys = Object.keys(mech);
+  if (keys.length <= 1) return keys;
+  return keys.filter(k => isConnectedWithout(mech, k));
 }
 
 export function scoreBlueprint(mech, blueprint) {

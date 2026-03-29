@@ -9,8 +9,9 @@ export function renderHand(state) {
       renderCardHTML(card, state.selectedHandCard === card.id, `selectHandCard(${card.id})`)
     ).join('');
   } else {
-    hand.innerHTML = state.player.hand.map(card =>
-      renderCardHTML(card, false, '')
-    ).join('');
+    hand.innerHTML = state.player.hand.map(card => {
+      const spannerClick = card.type === 'spanner' ? `selectHandCard(${card.id})` : '';
+      return renderCardHTML(card, false, spannerClick);
+    }).join('');
   }
 }

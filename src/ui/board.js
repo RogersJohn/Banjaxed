@@ -1,14 +1,15 @@
 // Blueprint grid rendering — DOM rendering for the mechanism board
 
 import { TYPES } from '../data/components.js';
-import { getMechanismBounds, posKey } from '../engine/rules.js';
+import { getMechanismBounds, posKey, getDestroyableKeys } from '../engine/rules.js';
 
 export function renderEdgeSymbols(card) {
   const dirs = ['top', 'right', 'bottom', 'left'];
   return dirs.map((dir, i) => {
     const edge = card.edges[i];
     let cls, label;
-    if (edge === '+') { cls = 'edge-plus'; label = '+'; }
+    if (edge === null) { cls = 'edge-blank'; label = ''; }
+    else if (edge === '+') { cls = 'edge-plus'; label = '+'; }
     else if (edge === '-') { cls = 'edge-minus'; label = '\u2212'; }
     else if (edge === 'blank') { cls = 'edge-blank'; label = '\u25CB'; }
     else { cls = 'edge-star'; label = '\u2605'; }
@@ -18,6 +19,15 @@ export function renderEdgeSymbols(card) {
 
 export function renderCardHTML(card, selected, onclick) {
   const t = TYPES[card.type];
+
+  if (card.type === 'spanner') {
+    return `<div class="component-card spanner-card ${selected ? 'selected' : ''}" onclick="${onclick}" style="border-color:var(--spanner); background:linear-gradient(135deg, #3d2e18, #2a2218);">
+      <div class="card-type-icon" style="font-size:28px;">${t.icon}</div>
+      <div class="card-type-name" style="color:var(--spanner); font-weight:600;">SPANNER</div>
+      <div style="font-size:8px; color:var(--text-dim); line-height:1.3; margin-top:2px;">DESTROY / FIX / REDUCE TOL</div>
+    </div>`;
+  }
+
   return `<div class="component-card ${selected ? 'selected' : ''}" onclick="${onclick}">
     ${renderEdgeSymbols(card)}
     <div class="card-type-icon">${t.icon}</div>
@@ -69,10 +79,15 @@ export function renderMechanism(state) {
         const isClickable = state.phase === 'banjax-choice' && card.upright;
         const isRepairable = state.phase === 'repair' && !card.upright;
         const isRetrievable = state.phase === 'retrieve' && state.validRetrievals && state.validRetrievals.includes(key);
+        const isSpannerTarget = state.phase === 'spanner-target' && state._spannerTargetWho === 'player' && state.pendingSpanner && (
+          (state.pendingSpanner.action === 'destroy' && getDestroyableKeys(mech).includes(key)) ||
+          (state.pendingSpanner.action === 'fix' && !card.upright)
+        );
         let onclick = null;
         if (isClickable) onclick = `chooseBanjaxTarget('${key}')`;
         else if (isRepairable) onclick = `repairFlip('${key}')`;
         else if (isRetrievable) onclick = `retrieveCard('${key}')`;
+        else if (isSpannerTarget) onclick = `executeSpanner('${key}', 'player')`;
         html += `<div class="grid-cell occupied">
           <div class="placed-card">
             ${renderCardInGrid(card, onclick)}

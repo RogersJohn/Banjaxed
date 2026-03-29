@@ -1,7 +1,7 @@
 import { describe, test, expect } from '@jest/globals';
 import {
   getNeededTypes, draftChoice, chooseBanjaxTarget,
-  shouldDeclare, handleEureka, chooseGiftPlacement, shouldRetrieve
+  shouldDeclare, handleEureka, chooseGiftPlacement, shouldRetrieve, playSpanner
 } from '../../src/engine/ai.js';
 
 function makeAiState(overrides = {}) {
@@ -147,6 +147,60 @@ describe('shouldRetrieve', () => {
       tolerance: 10,
     });
     expect(shouldRetrieve(ai)).toBe(false);
+  });
+});
+
+describe('playSpanner', () => {
+  test('returns null when AI has no spanners', () => {
+    const ai = makeAiState({ hand: [makeCard(1, 'gear')] });
+    expect(playSpanner(ai, {}, [])).toBeNull();
+  });
+
+  test('returns fix action when AI has a needed flipped component', () => {
+    const ai = makeAiState({
+      hand: [makeCard(1, 'spanner', [null, null, null, null])],
+      mechanism: {
+        '3_5': { type: 'gear', upright: false },
+        '3_6': { type: 'spring', upright: true },
+        '4_6': { type: 'cable', upright: true },
+      },
+    });
+    const result = playSpanner(ai, {}, []);
+    expect(result).not.toBeNull();
+    expect(result.action).toBe('fix');
+    expect(result.targetWho).toBe('ai');
+    expect(result.targetKey).toBe('3_5');
+  });
+
+  test('returns reduce-own action when AI tolerance >= 9', () => {
+    const ai = makeAiState({
+      hand: [makeCard(1, 'spanner', [null, null, null, null])],
+      mechanism: {
+        '3_5': { type: 'gear', upright: true },
+        '3_6': { type: 'spring', upright: true },
+        '4_6': { type: 'cable', upright: true },
+      },
+      tolerance: 9,
+    });
+    const result = playSpanner(ai, {}, []);
+    expect(result).not.toBeNull();
+    expect(result.action).toBe('reduce');
+    expect(result.targetWho).toBe('ai');
+  });
+
+  test('returns null when no beneficial play exists', () => {
+    const ai = makeAiState({
+      hand: [makeCard(1, 'spanner', [null, null, null, null])],
+      mechanism: {
+        '3_5': { type: 'gear', upright: true },
+        '3_6': { type: 'spring', upright: true },
+        '4_6': { type: 'cable', upright: true },
+      },
+      tolerance: 5,
+    });
+    // Empty player mechanism — nothing to destroy
+    const result = playSpanner(ai, {}, []);
+    expect(result).toBeNull();
   });
 });
 

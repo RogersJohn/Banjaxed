@@ -3,7 +3,8 @@ import {
   parsePos, posKey, getMechanismBounds, getNeighborKeys, DIR_INDEX,
   checkEdgeCompatibility, canPlaceCard, getAllValidPlacements,
   countComponents, getUprightTypes, checkBlueprintSatisfied,
-  isConnectedWithout, getRetrievableKeys, scoreBlueprint
+  isConnectedWithout, getRetrievableKeys, isSpanner, getDestroyableKeys,
+  scoreBlueprint
 } from '../../src/engine/rules.js';
 
 describe('parsePos / posKey', () => {
@@ -345,6 +346,79 @@ describe('getRetrievableKeys', () => {
     };
     const keys = getRetrievableKeys(mech);
     expect(keys).not.toContain('3_5'); // bridge card
+  });
+});
+
+describe('isSpanner', () => {
+  test('returns true for spanner cards', () => {
+    expect(isSpanner({ type: 'spanner' })).toBe(true);
+  });
+
+  test('returns false for component cards', () => {
+    expect(isSpanner({ type: 'gear' })).toBe(false);
+    expect(isSpanner({ type: 'widget' })).toBe(false);
+    expect(isSpanner({ type: 'lever' })).toBe(false);
+  });
+});
+
+describe('getDestroyableKeys', () => {
+  test('returns the single card key for a 1-card mechanism', () => {
+    const mech = { '3_5': { type: 'gear', upright: true } };
+    expect(getDestroyableKeys(mech)).toEqual(['3_5']);
+  });
+
+  test('returns both keys for a 2-card mechanism', () => {
+    const mech = {
+      '3_5': { type: 'gear', upright: true },
+      '3_6': { type: 'spring', upright: true },
+    };
+    const keys = getDestroyableKeys(mech);
+    expect(keys).toContain('3_5');
+    expect(keys).toContain('3_6');
+  });
+
+  test('does not return a bridge card', () => {
+    const mech = {
+      '3_4': { type: 'gear', upright: true },
+      '3_5': { type: 'spring', upright: true },
+      '3_6': { type: 'cable', upright: true },
+    };
+    const keys = getDestroyableKeys(mech);
+    expect(keys).not.toContain('3_5');
+  });
+
+  test('returns end cards and non-bridge cards', () => {
+    const mech = {
+      '3_4': { type: 'gear', upright: true },
+      '3_5': { type: 'spring', upright: true },
+      '3_6': { type: 'cable', upright: true },
+    };
+    const keys = getDestroyableKeys(mech);
+    expect(keys).toContain('3_4');
+    expect(keys).toContain('3_6');
+  });
+
+  test('includes upside-down components as valid targets', () => {
+    const mech = {
+      '3_5': { type: 'gear', upright: false },
+      '3_6': { type: 'spring', upright: true },
+      '4_6': { type: 'cable', upright: true },
+    };
+    const keys = getDestroyableKeys(mech);
+    expect(keys).toContain('3_5');
+  });
+
+  test('returns empty array for empty mechanism', () => {
+    expect(getDestroyableKeys({})).toEqual([]);
+  });
+});
+
+describe('getAllValidPlacements — spanner cards', () => {
+  test('returns no placements for spanner cards (null edges rejected)', () => {
+    const mech = { '3_5': { type: 'gear', edges: ['+', '-', '+', '-'], upright: true } };
+    const spannerCard = { type: 'spanner', edges: [null, null, null, null] };
+    const placements = getAllValidPlacements(mech, spannerCard);
+    expect(placements).toHaveLength(0);
   });
 });
 

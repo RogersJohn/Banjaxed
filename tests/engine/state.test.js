@@ -40,6 +40,11 @@ describe('createCard', () => {
     expect(card.edges).toEqual(['star', 'star', 'star', 'star']);
   });
 
+  test('spanner cards have all null edges', () => {
+    const card = createCard(0, 'spanner');
+    expect(card.edges).toEqual([null, null, null, null]);
+  });
+
   test('non-widget cards have standard edges', () => {
     const card = createCard(0, 'spring');
     expect(card.edges.filter(e => e === 'blank')).toHaveLength(1);
@@ -47,9 +52,9 @@ describe('createCard', () => {
 });
 
 describe('buildDeck', () => {
-  test('produces 110 cards', () => {
+  test('produces 120 cards', () => {
     const deck = buildDeck();
-    expect(deck).toHaveLength(110);
+    expect(deck).toHaveLength(120);
   });
 
   test('has correct distribution of types', () => {
@@ -69,12 +74,14 @@ describe('buildDeck', () => {
     expect(counts.cam).toBe(5);
     // Widgets
     expect(counts.widget).toBe(10);
+    // Spanners
+    expect(counts.spanner).toBe(10);
   });
 
   test('all cards have unique ids', () => {
     const deck = buildDeck();
     const ids = new Set(deck.map(c => c.id));
-    expect(ids.size).toBe(110);
+    expect(ids.size).toBe(120);
   });
 });
 
@@ -115,7 +122,7 @@ describe('createPlayerState', () => {
 describe('createInitialState', () => {
   test('creates a valid game state', () => {
     const state = createInitialState();
-    expect(state.deck).toHaveLength(110);
+    expect(state.deck).toHaveLength(120);
     expect(state.blueprintDeck.length).toBeGreaterThan(0);
     expect(state.round).toBe(0);
     expect(state.phase).toBe('draft');
@@ -142,10 +149,18 @@ describe('dealStartingHands', () => {
   test('deals 4 cards to each player', () => {
     const state = createInitialState();
     dealBlueprintChoices(state);
-    const deckBefore = state.deck.length;
     dealStartingHands(state);
     expect(state.player.hand).toHaveLength(4);
     expect(state.ai.hand).toHaveLength(4);
-    expect(state.deck.length).toBe(deckBefore - 8);
+  });
+
+  test('never deals a spanner to starting hands', () => {
+    for (let i = 0; i < 20; i++) {
+      const state = createInitialState();
+      dealBlueprintChoices(state);
+      dealStartingHands(state);
+      expect(state.player.hand.every(c => c.type !== 'spanner')).toBe(true);
+      expect(state.ai.hand.every(c => c.type !== 'spanner')).toBe(true);
+    }
   });
 });

@@ -43,6 +43,7 @@
   --escapement: #a8886a;
   --crank: #788858;
   --widget: #c8a848;
+  --spanner: #d4822a;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -826,7 +827,8 @@ import { TYPES } from './src/data/components.js';
 import { createInitialState, dealBlueprintChoices, dealStartingHands } from './src/engine/state.js';
 import {
   posKey, getAllValidPlacements, countComponents,
-  checkBlueprintSatisfied, scoreBlueprint, getRetrievableKeys
+  checkBlueprintSatisfied, scoreBlueprint, getRetrievableKeys,
+  isSpanner, getDestroyableKeys
 } from './src/engine/rules.js';
 import { rollBanjaxDice } from './src/engine/dice.js';
 import * as AI from './src/engine/ai.js';
@@ -998,6 +1000,12 @@ function selectDraftCard(idx) {
 }
 
 function placeGiftedCard(who, card) {
+  if (card.type === 'spanner') {
+    G[who].hand.push(card);
+    addLog(G, `${who === 'player' ? '<span class="log-player">You</span>' : '<span class="log-ai">Rival</span>'} receives gifted <span class="log-action" style="color:var(--spanner)">Spanner</span> (added to hand)`);
+    return;
+  }
+
   const p = G[who];
   const placements = getAllValidPlacements(p.mechanism, card);
 
@@ -1021,6 +1029,13 @@ function placeGiftedCard(who, card) {
 }
 
 function placeGiftedCardForPlayer(card) {
+  if (card.type === 'spanner') {
+    G.player.hand.push(card);
+    addLog(G, `<span class="log-player">You</span> receive gifted <span class="log-action" style="color:var(--spanner)">Spanner</span> (added to hand)`);
+    startBuildPhase();
+    return;
+  }
+
   const placements = getAllValidPlacements(G.player.mechanism, card);
 
   if (placements.length === 0) {
@@ -1088,6 +1103,86 @@ function discardGift() {
   startBuildPhase();
 }
 
+// --- SPANNERS ---
+function showSpannerModal(card) {
+  showModal(
+    'Play Spanner',
+    `Choose an action for your Spanner card.`,
+    '',
+    [
+      { text: 'DESTROY', class: 'btn-danger', action: `selectSpannerAction(${card.id}, 'destroy')` },
+      { text: 'FIX', class: 'btn-success', action: `selectSpannerAction(${card.id}, 'fix')` },
+      { text: 'REDUCE TOLERANCE', class: 'btn-secondary', action: `selectSpannerAction(${card.id}, 'reduce')` },
+      { text: 'Cancel', class: 'btn-primary', action: 'cancelSpanner()' },
+    ]
+  );
+}
+
+function selectSpannerAction(cardId, action) {
+  closeModal();
+  G._preSpannerPhase = G.phase;
+  G.pendingSpanner = { cardId, action };
+  G._spannerTargetWho = 'player';
+
+  if (action === 'reduce') {
+    showModal(
+      'Reduce Tolerance',
+      'Choose whose Tolerance to reduce by 2 (minimum 1).',
+      '',
+      [
+        { text: 'Reduce Your Tolerance', class: 'btn-secondary', action: `executeSpanner(null, 'player')` },
+        { text: 'Reduce Rival\'s Tolerance', class: 'btn-danger', action: `executeSpanner(null, 'ai')` },
+        { text: 'Cancel', class: 'btn-primary', action: 'cancelSpanner()' },
+      ]
+    );
+  } else {
+    G.phase = 'spanner-target';
+    render();
+  }
+}
+
+function executeSpanner(key, who) {
+  const { cardId, action } = G.pendingSpanner;
+  const targetName = who === 'player' ? 'your' : "Rival's";
+
+  if (action === 'destroy') {
+    const mech = G[who].mechanism;
+    const card = mech[key];
+    addLog(G, `<span class="log-player">You</span> play <span class="log-action" style="color:var(--spanner)">Spanner: DESTROY</span> — removed ${TYPES[card.type].name} from ${targetName} mechanism`);
+    delete mech[key];
+  } else if (action === 'fix') {
+    G[who].mechanism[key].upright = true;
+    addLog(G, `<span class="log-player">You</span> play <span class="log-action" style="color:var(--spanner)">Spanner: FIX</span> — flipped ${TYPES[G[who].mechanism[key].type].name} upright in ${targetName} mechanism`);
+  } else if (action === 'reduce') {
+    G[who].tolerance = Math.max(1, G[who].tolerance - 2);
+    addLog(G, `<span class="log-player">You</span> play <span class="log-action" style="color:var(--spanner)">Spanner: REDUCE</span> — ${targetName} Tolerance −2`);
+    closeModal();
+  }
+
+  G.player.hand = G.player.hand.filter(c => c.id !== cardId);
+  G.phase = G._preSpannerPhase;
+  delete G.pendingSpanner;
+  delete G._spannerTargetWho;
+  delete G._preSpannerPhase;
+  render();
+}
+
+function cancelSpanner() {
+  closeModal();
+  if (G._preSpannerPhase) {
+    G.phase = G._preSpannerPhase;
+  }
+  delete G.pendingSpanner;
+  delete G._spannerTargetWho;
+  delete G._preSpannerPhase;
+  render();
+}
+
+function setSpannerTarget(who) {
+  G._spannerTargetWho = who;
+  render();
+}
+
 // --- RETRIEVAL ---
 function startRetrieval() {
   G.phase = 'retrieve';
@@ -1122,11 +1217,16 @@ function startBuildPhase() {
 }
 
 function selectHandCard(cardId) {
-  if (G.phase !== 'build') return;
-  if (G.player.cardsPlayedThisTurn >= 3) return;
-
   const card = G.player.hand.find(c => c.id === cardId);
   if (!card) return;
+
+  if (card.type === 'spanner') {
+    showSpannerModal(card);
+    return;
+  }
+
+  if (G.phase !== 'build') return;
+  if (G.player.cardsPlayedThisTurn >= 3) return;
 
   if (G.selectedHandCard === cardId) {
     G.selectedHandCard = null;
@@ -1183,6 +1283,28 @@ function endBuildPhase() {
     G.validPlacements = getAllValidPlacements(G.player.mechanism, card);
     render();
     return;
+  }
+
+  // AI plays Spanners proactively before building
+  let aiSpannerResult = AI.playSpanner(G.ai, G.player.mechanism, G.deck);
+  while (aiSpannerResult) {
+    const { spannerCardId, action, targetWho, targetKey } = aiSpannerResult;
+    const targetName = targetWho === 'ai' ? 'own' : 'your';
+
+    if (action === 'destroy') {
+      const card = G[targetWho].mechanism[targetKey];
+      addLog(G, `<span class="log-ai">Rival</span> plays <span class="log-action" style="color:var(--spanner)">Spanner: DESTROY</span> — removed ${TYPES[card.type].name} from ${targetName} mechanism`);
+      delete G[targetWho].mechanism[targetKey];
+    } else if (action === 'fix') {
+      G[targetWho].mechanism[targetKey].upright = true;
+      addLog(G, `<span class="log-ai">Rival</span> plays <span class="log-action" style="color:var(--spanner)">Spanner: FIX</span> — flipped ${TYPES[G[targetWho].mechanism[targetKey].type].name} upright in ${targetName} mechanism`);
+    } else if (action === 'reduce') {
+      G[targetWho].tolerance = Math.max(1, G[targetWho].tolerance - 2);
+      addLog(G, `<span class="log-ai">Rival</span> plays <span class="log-action" style="color:var(--spanner)">Spanner: REDUCE</span> — ${targetName} Tolerance −2`);
+    }
+
+    G.ai.hand = G.ai.hand.filter(c => c.id !== spannerCardId);
+    aiSpannerResult = AI.playSpanner(G.ai, G.player.mechanism, G.deck);
   }
 
   // AI build phase
@@ -1599,6 +1721,10 @@ window.repairFlip = repairFlip;
 window.repairTolerance = repairTolerance;
 window.skipRepair = skipRepair;
 window.discardGift = discardGift;
+window.selectSpannerAction = selectSpannerAction;
+window.executeSpanner = executeSpanner;
+window.cancelSpanner = cancelSpanner;
+window.setSpannerTarget = setSpannerTarget;
 window.startRetrieval = startRetrieval;
 window.cancelRetrieval = cancelRetrieval;
 window.retrieveCard = retrieveCard;

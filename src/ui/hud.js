@@ -1,7 +1,7 @@
 // Tolerance dial, score, status, and general UI helpers
 
 import { TYPES } from '../data/components.js';
-import { countComponents, getUprightTypes, checkBlueprintSatisfied, getRetrievableKeys } from '../engine/rules.js';
+import { countComponents, getUprightTypes, checkBlueprintSatisfied, getRetrievableKeys, getDestroyableKeys } from '../engine/rules.js';
 
 export function renderPlayerInfo(state) {
   document.getElementById('player-bp-count').textContent = `${state.player.blueprintsComplete}/2`;
@@ -66,10 +66,21 @@ export function renderAIInfo(state) {
   if (keys.length === 0) {
     display.innerHTML = '<span style="font-size:11px; color:var(--text-dim)">Empty</span>';
   } else {
+    const isSpannerTargeting = state.phase === 'spanner-target' && state._spannerTargetWho === 'ai' && state.pendingSpanner;
+    const destroyableAI = isSpannerTargeting && state.pendingSpanner.action === 'destroy' ? getDestroyableKeys(state.ai.mechanism) : [];
+
     display.innerHTML = `<div class="ai-mechanism-mini">
       ${keys.map(k => {
         const c = state.ai.mechanism[k];
-        return `<div class="ai-mini-card ${c.upright ? '' : 'upside-down'}" style="background:${TYPES[c.type].color}33; border-color:${TYPES[c.type].color}66" title="${TYPES[c.type].name}${c.upright ? '' : ' (flipped)'}">${TYPES[c.type].icon}</div>`;
+        let clickAttr = '';
+        if (isSpannerTargeting) {
+          if (state.pendingSpanner.action === 'destroy' && destroyableAI.includes(k)) {
+            clickAttr = `onclick="executeSpanner('${k}', 'ai')" style="cursor:pointer; border-color:var(--danger); box-shadow:0 0 6px var(--danger-glow);"`;
+          } else if (state.pendingSpanner.action === 'fix' && !c.upright) {
+            clickAttr = `onclick="executeSpanner('${k}', 'ai')" style="cursor:pointer; border-color:var(--success); box-shadow:0 0 6px var(--success-glow);"`;
+          }
+        }
+        return `<div class="ai-mini-card ${c.upright ? '' : 'upside-down'}" ${clickAttr} ${!clickAttr ? `style="background:${TYPES[c.type].color}33; border-color:${TYPES[c.type].color}66"` : ''} title="${TYPES[c.type].name}${c.upright ? '' : ' (flipped)'}">${TYPES[c.type].icon}</div>`;
       }).join('')}
     </div>`;
   }
@@ -103,6 +114,13 @@ export function renderActionBar(state) {
   } else if (state.phase === 'retrieve') {
     html += `<span style="font-size:11px; color:var(--accent);">Click a highlighted component to retrieve it to your hand</span>`;
     html += `<button class="btn btn-secondary" onclick="cancelRetrieval()" style="margin-left:8px;">Cancel</button>`;
+  } else if (state.phase === 'spanner-target') {
+    const actionName = state.pendingSpanner ? state.pendingSpanner.action.toUpperCase() : '';
+    html += `<span style="font-size:11px; color:var(--spanner); margin-right:8px;">Spanner: ${actionName}</span>`;
+    const targetWho = state._spannerTargetWho || 'player';
+    html += `<button class="btn ${targetWho === 'player' ? 'btn-primary' : 'btn-secondary'}" onclick="setSpannerTarget('player')">Target: You</button>`;
+    html += `<button class="btn ${targetWho === 'ai' ? 'btn-primary' : 'btn-secondary'}" onclick="setSpannerTarget('ai')" style="margin-left:4px;">Target: Rival</button>`;
+    html += `<button class="btn btn-danger" onclick="cancelSpanner()" style="margin-left:8px;">Cancel</button>`;
   }
 
   bar.innerHTML = html;
@@ -122,6 +140,7 @@ export function setPhase(state, phase) {
     'place-gift': { text: 'Place Gift', cls: 'phase-build' },
     'banjax-choice': { text: 'Banjaxed!', cls: 'phase-roll' },
     'retrieve': { text: 'Retrieve', cls: 'phase-draft' },
+    'spanner-target': { text: 'Spanner!', cls: 'phase-roll' },
   };
   const p = phaseMap[phase] || { text: phase, cls: 'phase-draft' };
   document.getElementById('phase-display').innerHTML = `<span class="phase-indicator ${p.cls}">${p.text}</span>`;
