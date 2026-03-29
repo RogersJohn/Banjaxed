@@ -105,6 +105,11 @@ describe('createPlayerState', () => {
     expect(state.blueprintsComplete).toBe(0);
     expect(state.cardsPlayedThisTurn).toBe(0);
   });
+
+  test('does not have blueprintReceivedRound property', () => {
+    const state = createPlayerState();
+    expect(state).not.toHaveProperty('blueprintReceivedRound');
+  });
 });
 
 describe('createInitialState', () => {

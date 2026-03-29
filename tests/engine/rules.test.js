@@ -314,4 +314,24 @@ describe('scoreBlueprint', () => {
     const result = scoreBlueprint(mech, blueprint);
     expect(result.base).toBe(2); // widget fills spring slot but scores 0
   });
+
+  test('returns no speedBonus field', () => {
+    const blueprint = { name: 'Test', requires: ['gear'], basePoints: 1 };
+    const mech = { '3_5': { type: 'gear', upright: true } };
+    const result = scoreBlueprint(mech, blueprint);
+    expect(result).toEqual({ base: expect.any(Number), excess: expect.any(Number), penalty: expect.any(Number), total: expect.any(Number) });
+    expect(result).not.toHaveProperty('speedBonus');
+  });
+
+  test('total is base + excess + penalty only', () => {
+    const blueprint = { name: 'Test', requires: ['gear', 'spring'], basePoints: 2 };
+    const mech = {
+      '3_5': { type: 'gear', upright: true },
+      '3_6': { type: 'spring', upright: true },
+      '4_5': { type: 'cable', upright: true },
+      '4_6': { type: 'lever', upright: false },
+    };
+    const result = scoreBlueprint(mech, blueprint);
+    expect(result.total).toBe(result.base + result.excess + result.penalty);
+  });
 });
